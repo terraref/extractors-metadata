@@ -2,11 +2,11 @@
 
 This repository contains extractors that process and derive outputs from various sensor metadata. 
 
-In cases like the geospatial extractor, the same structure of positional metadata exists across multiple 
+In cases like the sensorposition extractor, the same structure of positional metadata exists across multiple 
 sensors so the extractor can accept a variety of datasets.
 
 
-### Geospatial extractor
+### Sensor position extractor
 This extractor extracts positional data from the metadata into PostGIS geographies via the Clowder
 Geostreams API, allowing for location-based searching. 
 

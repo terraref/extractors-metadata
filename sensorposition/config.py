@@ -13,7 +13,7 @@
 import os
 
 # name to show in rabbitmq queue list
-extractorName = os.getenv('RABBITMQ_QUEUE', "sensorposition")
+extractorName = os.getenv('RABBITMQ_QUEUE', "terra.sensorposition")
 
 # URL to be used for connecting to rabbitmq
 # rabbitmqURL = os.getenv('RABBITMQ_URI', "amqp://guest:guest@rabbitmq.ncsa.illinois.edu:5672/clowder-dev")
@@ -28,3 +28,12 @@ messageType = "*.metadata.added"
 
 # trust certificates, set this to false for self signed certificates
 sslVerify = os.getenv('RABBITMQ_SSLVERIFY', False)
+
+# Comma delimited list of endpoints and keys for registering extractor information
+registrationEndpoints = os.getenv('REGISTRATION_ENDPOINTS', "")
+
+# Dictionary that maps {"remote Clowder source path": "local mounted path"} for streamlining Clowder downloads
+mountedPaths = {"/home/clowder/sites": "/home/extractor/sites"}
+
+# Stream in Geostreams API to upload datapoints into
+geostream_id = "1"
