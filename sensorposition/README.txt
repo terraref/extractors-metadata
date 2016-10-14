@@ -6,6 +6,3 @@ requirements.txt
 
 Error estimation:
 error_estimation.py (current, the NW point will have (6,22) error)
-
-Wrapped function:
-gantry_to_latlon.py (convert gantry poitions to Lat/Lon)

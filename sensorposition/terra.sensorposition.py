@@ -37,7 +37,6 @@ def main():
 
 # Check whether dataset has geospatial metadata
 def check_message(parameters):
-	#print(parameters)
 	if 'metadata' in parameters:
 		# Check properties of metadata for required geospatial information
 		if 'lemnatec_measurement_metadata' in parameters['metadata']:
@@ -55,11 +54,15 @@ def check_message(parameters):
 					return True
 
 	# If we didn't find required metadata info, don't process this dataset
+	print("Did not find required geopositional metadata; skipping %s" % parameters['datasetId'])
 	return False
 
 # Process the file and upload the results
 def process_metadata(parameters):
 	global geostream_id
+	host = parameters['host']
+	key = parameters['secretKey']
+
 
 	# Pull positional information from metadata -----------------------------------------------------
 
@@ -157,8 +160,7 @@ def process_metadata(parameters):
 			"stream_id": geostream_id
 	}
 
-	host = "https://terraref.ncsa.illinois.edu/clowder-dev/" # TODO: parameters['host']
-	key = parameters['secretKey']
+	# Make the POST
 	r = requests.post(os.path.join(host,'api/geostreams/datapoints?key=%s' % key),
 					  	data=json.dumps(body),
 					  	headers={'Content-type': 'application/json'})
