@@ -1,0 +1,73 @@
+{
+  "lemnatec_measurement_metadata": {
+    "user_given_metadata": {
+      "experiment title": "Sorghum field experiment",
+      "experiment responsible": "to be named",
+      "project": "TERRA-REF",
+      "instrument": "gantry at Maricopa phenotyping facility",
+      "instrument": "field gantry",
+      "location": "Maricopa phenotyping facility",
+      "date of sowing": "19.4.2016",
+      "date of emergence": "25.4.2016",
+      "campaign": "seedling emergence and early vigor",
+      "mission or scan": "test"
+    },
+    "gantry_system_fixed_metadata": {
+      "System manufacturer": "LemnaTec Corp.",
+      "gantry fixed data 1": "Todo",
+      "gantry fixed data 2": "Todo"
+    },
+    "gantry_system_variable_metadata": {
+      "Time": "05/07/2016 15:58:43",
+      "Position x [m]": "203.6",
+      "Position y [m]": "2.499",
+      "Position z [m]": "0",
+      "Velocity x [m/s]": "0",
+      "Velocity y [m/s]": "0",
+      "Velocity z [m/s]": "0",
+      "Camnera box light 1 is on": "False",
+      "Camnera box light 2 is on": "False",
+      "Camnera box light 3 is on": "False",
+      "Camnera box light 4 is on": "False"
+    },
+    "sensor_fixed_metadata": {
+      "sensor manufacturer": "LemnaTec",
+      "sensor product name": "PS2 System",
+      "sensor serial number": "prototype",
+      "sensor description": "a camera measures red light emitted by chlorophyll fluorescence",
+      "sensor purpose": "Measures photosynthetic efficiency",
+      "camera manufacturer": "allied vision",
+      "camera product name": "manta G-235b",
+      "camera serial": "50-0503354876",
+      "camera resolution": "1936x1216",
+      "pixel format": "mono 8bit",
+      "Optics manufaturer": "todo",
+      "Optics settings": "todo",
+      "Bandpass filter center wavelength [nm]": "710",
+      "Bandpass filter center minimum bandwidth [nm]": "40",
+      "Bandpass filter center FWHM bandwidth [nm]": "47.5",
+      "light source desctription": "led red panel up to 7000 umol/m^2/s",
+      "light source wavelength [nm]": "DWL 620-630",
+      "light source details available": "LemnaTec DOE PS2 Camera Manual",
+      "light on duration [ms]": "1000",
+      "light source more to follow": "todo",
+      "location in gantry system": "camera box, facing ground",
+      "location in camera box X [m]": "0.827",
+      "location in camera box Y [m]": "0.710",
+      "field of view X [m]": "2.673",
+      "field of view Y [m]": "1.647",
+      "camera computer interface": "GigE",
+      "Output data description0": "dark image (prior illumination) in binfile 0 (mono8)",
+      "Output data description1": "timestamps in last binfile (txt/xml)",
+      "Output data description2": "other binfiles -> image series (mono8)"
+    },
+    "sensor_variable_metadata": {
+      "current setting rotate flip type": "0",
+      "current setting crosshairs": "0",
+      "current setting exposure": "28",
+      "current setting gain": "2000",
+      "current setting gamma": "100",
+      "current setting ledcurrent": "60"
+    }
+  }
+}

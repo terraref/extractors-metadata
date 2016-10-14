@@ -1,0 +1,13 @@
+{
+    "@context": "http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
+    "name": "terra.sensorposition",
+    "version": "1.0",
+    "description": "Geospatial Sensor Position Extractor",
+    "author": "Yaping Cai <cai25@illinois.edu>",
+    "contributors": [Max],
+    "contexts": [],
+    "repository": {"repType": "git", "repUrl": "https://github.com/terraref/computing-pipeline"},
+    "external_services": [],
+    "dependencies": [],
+    "bibtex": []
+}
