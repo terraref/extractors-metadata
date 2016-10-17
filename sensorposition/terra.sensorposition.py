@@ -48,9 +48,14 @@ def check_message(parameters):
 
 # Process the file and upload the results
 def process_metadata(parameters):
-	global geostream_id
+	global geostream_map
+
 	host = parameters['host']
 	key = parameters['secretKey']
+	# Get sensor name from dataset name, e.g. "stereoTop 2016-01-01__12-12-12-123" = "stereoTop"
+	sensor_name = parameters['datasetInfo']['name']
+	if sensor_name.find(' - ') > -1:
+		sensor_name = sensor_name.split(' - ')[0]
 
 	# Pull positional information from metadata
 	gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y = fetch_position_data(parameters['metadata'])
@@ -132,7 +137,7 @@ def process_metadata(parameters):
 				"coordinates": [sensor_latlon[1], sensor_latlon[0], 0]
 			},
 			"properties": metadata,
-			"stream_id": geostream_id
+			"stream_id": geostream_map[sensor_name] if (sensor_name in geostream_map) else "99"
 	}
 
 	# Make the POST

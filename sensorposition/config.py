@@ -35,5 +35,8 @@ registrationEndpoints = os.getenv('REGISTRATION_ENDPOINTS', "")
 # Dictionary that maps {"remote Clowder source path": "local mounted path"} for streamlining Clowder downloads
 mountedPaths = {"/home/clowder/sites": "/home/extractor/sites"}
 
-# Stream in Geostreams API to upload datapoints into
-geostream_id = "1"
+# Map of {physical_sensor : geostream_stream_id} for Clowder Geostreams API datapoints; uses stream_id=99 if not found
+geostream_map = {   "stereoTop": "1",
+                    "flirIr": "2",
+                    "co2Sensor": "3"
+                 }
