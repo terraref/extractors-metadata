@@ -38,20 +38,9 @@ def main():
 # Check whether dataset has geospatial metadata
 def check_message(parameters):
 	if 'metadata' in parameters:
-		# Check properties of metadata for required geospatial information
-		if 'lemnatec_measurement_metadata' in parameters['metadata']:
-			lem_md = parameters['metadata']['lemnatec_measurement_metadata']
-			if 'gantry_system_variable_metadata' in lem_md and 'sensor_fixed_metadata' in lem_md:
-				gantryInfo = lem_md['gantry_system_variable_metadata']
-				sensorInfo = lem_md['sensor_fixed_metadata']
-
-				if (	'position x [m]' in gantryInfo and
-						'position y [m]' in gantryInfo and
-						'location in camera box x [m]' in sensorInfo and
-						'location in camera box y [m]' in sensorInfo and
-						'field of view x [m]' in sensorInfo and
-						'field of view y [m]' in sensorInfo):
-					return True
+		gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y = fetch_position_data(parameters['metadata'])
+		if gantry_x and gantry_y and loc_cambox_x and loc_cambox_y and fov_x and fov_y:
+			return True
 
 	# If we didn't find required metadata info, don't process this dataset
 	print("Did not find required geopositional metadata; skipping %s" % parameters['datasetId'])
@@ -63,39 +52,26 @@ def process_metadata(parameters):
 	host = parameters['host']
 	key = parameters['secretKey']
 
+	# Pull positional information from metadata
+	gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y = fetch_position_data(parameters['metadata'])
 
-	# Pull positional information from metadata -----------------------------------------------------
-
-	gantry_meta = parameters['metadata']['lemnatec_measurement_metadata']['gantry_system_variable_metadata']
-	sensor_meta = parameters['metadata']['lemnatec_measurement_metadata']['sensor_fixed_metadata']
-	gantry_x = jsonToFloat(gantry_meta['position x [m]'])
-	gantry_y = jsonToFloat(gantry_meta['position y [m]'])
-	sensor_x = jsonToFloat(sensor_meta['location in camera box x [m]'])
-	sensor_y = jsonToFloat(sensor_meta['location in camera box y [m]'])
-	fov_x = jsonToFloat(sensor_meta['field of view x [m]'])
-	fov_y = jsonToFloat(sensor_meta['field of view y [m]'])
 	# timestamp, e.g. "2016-05-15T00:30:00-05:00"
 	if 'Time' in gantry_meta:
 		time = gantry_meta['Time'].encode("utf-8")
 	else:
 		time = "unknown"
 
-
 	# Convert positional information into FOV polygon -----------------------------------------------------
-
 	# GANTRY GEOM (LAT-LONG) ##############
-	#	                                  #
 	# NW: 33d 04.592m N , -111d 58.505m W #
 	# NE: 33d 04.591m N , -111d 58.487m W #
 	# SW: 33d 04.474m N , -111d 58.505m W #
 	# SE: 33d 04.470m N , -111d 58.485m W #
-	#	                                  #
 	#######################################
 	SE_latlon = (33.0745, -111.97475)
 	SE_utm = utm.from_latlon(SE_latlon[0], SE_latlon[1])
 
 	# GANTRY GEOM (GANTRY CRS) ############
-	#                                     #
 	#			      N(x)                #
 	#			      ^                   #
 	#			      |                   #
@@ -112,8 +88,8 @@ def process_metadata(parameters):
 	# Determine sensor position relative to origin and get lat/lon
 	gantry_utm_x = SE_utm[0] - (gantry_y - SE_offset_y)
 	gantry_utm_y = SE_utm[1] + (gantry_x - SE_offset_x)
-	sensor_utm_x = gantry_utm_x - sensor_y
-	sensor_utm_y = gantry_utm_y + sensor_x
+	sensor_utm_x = gantry_utm_x - loc_cambox_y
+	sensor_utm_y = gantry_utm_y + loc_cambox_x
 	sensor_latlon = utm.to_latlon(sensor_utm_x, sensor_utm_y, SE_utm[2], SE_utm[3])
 	print("sensor lat/lon: %s" % sensor_latlon)
 
@@ -126,7 +102,6 @@ def process_metadata(parameters):
 	fov_se_latlon = utm.to_latlon(fov_SE_utm_x, fov_SE_utm_y, SE_utm[2], SE_utm[3])
 	print("F.O.V. NW lat/lon: %s" % fov_nw_latlon)
 	print("F.O.V. SE lat/lon: %s" % fov_se_latlon)
-
 
 	# Upload data into Geostreams API -----------------------------------------------------
 	fileIdList = []
@@ -166,13 +141,85 @@ def process_metadata(parameters):
 					  	headers={'Content-type': 'application/json'})
 
 	if r.status_code != 200:
-		print("ERROR: Could not add datapoint to stream : [%s] - %s" %  (str(r.status_code), r.text) )
+		print("ERROR: Could not add datapoint to stream : [%s] - %s" %  (r.status_code, r.text) )
 	else:
 		print "Successfully added datapoint."
 	return
 
+
+# Try several variations on each position field to get all required information
+def fetch_position_data(metadata):
+	gantry_x, gantry_y = None, None
+	loc_cambox_x, loc_cambox_y = None, None
+	fov_x, fov_y = None, None
+
+	"""
+		Due to observed differences in metadata field names over time, this method is
+		flexible with respect to finding fields. By default each entry for each field
+		is checked with both a lowercase and uppercase leading character.
+	"""
+
+	if 'lemnatec_measurement_metadata' in metadata:
+		lem_md = metadata['lemnatec_measurement_metadata']
+		if 'gantry_system_variable_metadata' in lem_md and 'sensor_fixed_metadata' in lem_md:
+			gantry_meta = lem_md['gantry_system_variable_metadata']
+			sensor_meta = lem_md['sensor_fixed_metadata']
+
+			# X and Y position of gantry
+			x_positions = ['position x [m]', 'position X [m]']
+			for variant in x_positions:
+				val = check_field_variants(gantry_meta, variant)
+				if val:
+					gantry_x = parse_as_float(val)
+					break
+			y_positions = ['position y [m]', 'position Y [m]']
+			for variant in y_positions:
+				val = check_field_variants(gantry_meta, variant)
+				if val:
+					gantry_y = parse_as_float(val)
+					break
+
+			# Sensor location within camera box
+			cbx_locations = ['location in camera box x [m]', 'location in camera box X [m]']
+			for variant in cbx_locations:
+				val = check_field_variants(sensor_meta, variant)
+				if val:
+					loc_cambox_x = parse_as_float(val)
+					break
+			cby_locations = ['location in camera box y [m]', 'location in camera box Y [m]']
+			for variant in cby_locations:
+				val = check_field_variants(sensor_meta, variant)
+				if val:
+					loc_cambox_y = parse_as_float(val)
+					break
+
+			# Field of view
+			x_fovs = ['field of view x [m]', 'field of view X [m]']
+			for variant in x_fovs:
+				val = check_field_variants(sensor_meta, variant)
+				if val:
+					fov_x = parse_as_float(val)
+					break
+			y_fovs = ['field of view y [m]', 'field of view Y [m]']
+			for variant in y_fovs:
+				val = check_field_variants(sensor_meta, variant)
+				if val:
+					fov_y = parse_as_float(val)
+					break
+
+	return gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y
+
+# Check for fieldname in dict, including capitalization changes
+def check_field_variants(dict, key):
+	if key in dict:
+		return dict[key]
+	elif key.capitalize() in dict:
+		return dict[key.capitalize()]
+	else:
+		return False
+
 # Try to convert val to float, return val on Exception
-def jsonToFloat(val):
+def parse_as_float(val):
 	try:
 		return float(val.encode("utf-8"))
 	except AttributeError:
