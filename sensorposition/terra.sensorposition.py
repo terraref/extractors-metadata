@@ -3,6 +3,7 @@ import logging
 from config import *
 import pyclowder.extractors as extractors
 import utm
+import time
 import json
 import requests
 
@@ -38,7 +39,7 @@ def main():
 # Check whether dataset has geospatial metadata
 def check_message(parameters):
 	if 'metadata' in parameters:
-		gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, time = fetch_md_parts(parameters['metadata'])
+		gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime = fetch_md_parts(parameters['metadata'])
 		if gantry_x and gantry_y and loc_cambox_x and loc_cambox_y and fov_x and fov_y:
 			return True
 
@@ -58,7 +59,7 @@ def process_metadata(parameters):
 		sensor_name = sensor_name.split(' - ')[0]
 
 	# Pull positional information from metadata
-	gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, time = fetch_md_parts(parameters['metadata'])
+	gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime = fetch_md_parts(parameters['metadata'])
 
 	# Convert positional information into FOV polygon -----------------------------------------------------
 	# GANTRY GEOM (LAT-LONG) ##############
@@ -111,9 +112,12 @@ def process_metadata(parameters):
 	if (sensor_name in geostream_map):
 		stream_id = geostream_map[sensor_name]
 	else:
-		stream_id = get_stream_id(sensor_name)
+		stream_id = get_stream_id(host, key, sensor_name)
 		if not stream_id:
-			stream_id = "99"
+			stream_id = create_stream(host, key, sensor_name, {
+				"type": "Point",
+				"coordinates": sensor_latlon
+			})
 
 	print("posting datapoint to stream %s" % stream_id)
 	metadata = {
@@ -129,9 +133,16 @@ def process_metadata(parameters):
 							 [fov_se_latlon[1], fov_se_latlon[0], 0] ]]
 		}
 	}
+
+	# Format time properly, adding UTC if missing from Danforth timestamp
+	time_obj = time.strptime(ctime, "%m/%d/%Y %H:%M:%S")
+	time_fmt = time.strftime('%Y-%m-%dT%H:%M:%S', time_obj)
+	if len(time_fmt) == 19:
+		time_fmt += "-06:00"
+
 	# Actual data to be sent to Geostreams
-	body = {"start_time": time,
-			"end_time": time,
+	body = {"start_time": time_fmt,
+			"end_time": time_fmt,
 			"type": "Point",
 			# TODO: Make this send the FOV polygon once Clowder supports it
 			"geometry": {
@@ -159,7 +170,7 @@ def fetch_md_parts(metadata):
 	gantry_x, gantry_y = None, None
 	loc_cambox_x, loc_cambox_y = None, None
 	fov_x, fov_y = None, None
-	time = None
+	ctime = None
 
 	"""
 		Due to observed differences in metadata field names over time, this method is
@@ -226,11 +237,11 @@ def fetch_md_parts(metadata):
 			# timestamp, e.g. "2016-05-15T00:30:00-05:00"
 			val = check_field_variants(gantry_meta, 'time')
 			if val:
-				time = val.encode("utf-8")
+				ctime = val.encode("utf-8")
 			else:
-				time = "unknown"
+				ctime = "unknown"
 
-	return gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, time
+	return gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime
 
 # Get stream ID from Clowder based on stream name
 def get_stream_id(host, key, name):
@@ -247,6 +258,32 @@ def get_stream_id(host, key, name):
 				return s['id']
 	else:
 		print("error searching for stream ID")
+
+	return None
+
+def create_stream(host, key, name, geom):
+	global sensor_id
+
+	if(not host.endswith("/")):
+		host = host+"/"
+
+	body = {
+		"name": name,
+		"type": "point",
+		"geometry": geom,
+		"properties": {},
+		"sensor_id": sensor_id
+	}
+
+	url = "%sapi/geostreams/streams?key=%s" % (host, key)
+	print("...creating new stream: "+name)
+	r = requests.post(url,
+					  data=json.dumps(body),
+					  headers={'Content-type': 'application/json'})
+	if r.status_code == 200:
+		return r.json()['id']
+	else:
+		print("error creating stream")
 
 	return None
 
