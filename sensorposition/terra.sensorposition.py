@@ -38,7 +38,7 @@ def main():
 # Check whether dataset has geospatial metadata
 def check_message(parameters):
 	if 'metadata' in parameters:
-		gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y = fetch_position_data(parameters['metadata'])
+		gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, time = fetch_md_parts(parameters['metadata'])
 		if gantry_x and gantry_y and loc_cambox_x and loc_cambox_y and fov_x and fov_y:
 			return True
 
@@ -58,13 +58,7 @@ def process_metadata(parameters):
 		sensor_name = sensor_name.split(' - ')[0]
 
 	# Pull positional information from metadata
-	gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y = fetch_position_data(parameters['metadata'])
-
-	# timestamp, e.g. "2016-05-15T00:30:00-05:00"
-	if 'Time' in gantry_meta:
-		time = gantry_meta['Time'].encode("utf-8")
-	else:
-		time = "unknown"
+	gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, time = fetch_md_parts(parameters['metadata'])
 
 	# Convert positional information into FOV polygon -----------------------------------------------------
 	# GANTRY GEOM (LAT-LONG) ##############
@@ -96,7 +90,7 @@ def process_metadata(parameters):
 	sensor_utm_x = gantry_utm_x - loc_cambox_y
 	sensor_utm_y = gantry_utm_y + loc_cambox_x
 	sensor_latlon = utm.to_latlon(sensor_utm_x, sensor_utm_y, SE_utm[2], SE_utm[3])
-	print("sensor lat/lon: %s" % sensor_latlon)
+	print("sensor lat/lon: %s" % str(sensor_latlon))
 
 	# Determine field of view (assumes F.O.V. X&Y are based on center of sensor)
 	fov_NW_utm_x = sensor_utm_x - fov_y/2
@@ -105,8 +99,8 @@ def process_metadata(parameters):
 	fov_SE_utm_y = sensor_utm_y - fov_x/2
 	fov_nw_latlon = utm.to_latlon(fov_NW_utm_x, fov_NW_utm_y, SE_utm[2],SE_utm[3])
 	fov_se_latlon = utm.to_latlon(fov_SE_utm_x, fov_SE_utm_y, SE_utm[2], SE_utm[3])
-	print("F.O.V. NW lat/lon: %s" % fov_nw_latlon)
-	print("F.O.V. SE lat/lon: %s" % fov_se_latlon)
+	print("F.O.V. NW lat/lon: %s" % str(fov_nw_latlon))
+	print("F.O.V. SE lat/lon: %s" % str(fov_se_latlon))
 
 	# Upload data into Geostreams API -----------------------------------------------------
 	fileIdList = []
@@ -114,6 +108,14 @@ def process_metadata(parameters):
 		fileIdList.append(f['id'])
 
 	# Metadata for datapoint properties
+	if (sensor_name in geostream_map):
+		stream_id = geostream_map[sensor_name]
+	else:
+		stream_id = get_stream_id(sensor_name)
+		if not stream_id:
+			stream_id = "99"
+
+	print("posting datapoint to stream %s" % stream_id)
 	metadata = {
 		"sources": host+"datasets/"+parameters['datasetId'],
 		"file_ids": ",".join(fileIdList),
@@ -137,7 +139,7 @@ def process_metadata(parameters):
 				"coordinates": [sensor_latlon[1], sensor_latlon[0], 0]
 			},
 			"properties": metadata,
-			"stream_id": geostream_map[sensor_name] if (sensor_name in geostream_map) else "99"
+			"stream_id": stream_id
 	}
 
 	# Make the POST
@@ -146,17 +148,18 @@ def process_metadata(parameters):
 					  	headers={'Content-type': 'application/json'})
 
 	if r.status_code != 200:
-		print("ERROR: Could not add datapoint to stream : [%s] - %s" %  (r.status_code, r.text) )
+		print("ERROR: Could not add datapoint to stream : [%s]" %  r.status_code)
 	else:
 		print "Successfully added datapoint."
 	return
 
 
 # Try several variations on each position field to get all required information
-def fetch_position_data(metadata):
+def fetch_md_parts(metadata):
 	gantry_x, gantry_y = None, None
 	loc_cambox_x, loc_cambox_y = None, None
 	fov_x, fov_y = None, None
+	time = None
 
 	"""
 		Due to observed differences in metadata field names over time, this method is
@@ -211,8 +214,41 @@ def fetch_position_data(metadata):
 				if val:
 					fov_y = parse_as_float(val)
 					break
+			if not (fov_x and fov_y):
+				val = check_field_variants(sensor_meta, 'field of view at 2m in X- Y- direction [m]')
+				if val:
+					vals = val.replace('[','').replace(']','').split(' ')
+					if not fov_x:
+						fov_x = parse_as_float(vals[0])
+					if not fov_y:
+						fov_y = parse_as_float(vals[1])
 
-	return gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y
+			# timestamp, e.g. "2016-05-15T00:30:00-05:00"
+			val = check_field_variants(gantry_meta, 'time')
+			if val:
+				time = val.encode("utf-8")
+			else:
+				time = "unknown"
+
+	return gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, time
+
+# Get stream ID from Clowder based on stream name
+def get_stream_id(host, key, name):
+	if(not host.endswith("/")):
+		host = host+"/"
+
+	url = "%sapi/geostreams/streams?stream_name=%s&key=%s" % (host, name, key)
+	print("...searching for stream ID: "+url)
+	r = requests.get(url)
+	if r.status_code == 200:
+		json_data = r.json()
+		for s in json_data:
+			if 'name' in s and s['name'] == name:
+				return s['id']
+	else:
+		print("error searching for stream ID")
+
+	return None
 
 # Check for fieldname in dict, including capitalization changes
 def check_field_variants(dict, key):
@@ -229,6 +265,7 @@ def parse_as_float(val):
 		return float(val.encode("utf-8"))
 	except AttributeError:
 		return val
+
 
 
 if __name__ == "__main__":
