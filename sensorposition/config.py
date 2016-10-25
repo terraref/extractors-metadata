@@ -47,3 +47,6 @@ geostream_map = {   "stereoTop": "5",
                     "SWIR": "13",
                     "VNIR": "2"
                  }
+
+# Main sensor/site to post streams & datapoints into
+sensor_id = "2"
