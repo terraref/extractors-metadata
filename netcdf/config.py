@@ -16,12 +16,10 @@ import os
 extractorName = os.getenv('RABBITMQ_QUEUE', "terra.netcdf")
 
 # URL to be used for connecting to rabbitmq
-# rabbitmqURL = os.getenv('RABBITMQ_URI', "amqp://guest:guest@rabbitmq.ncsa.illinois.edu:5672/clowder-dev")
 rabbitmqURL = os.getenv('RABBITMQ_URI', "amqp://guest:guest@localhost:5672/%2f")
 
 # name of rabbitmq exchange
-# rabbitmqExchange = os.getenv('RABBITMQ_EXCHANGE', "terra")
-rabbitmqExchange = os.getenv('RABBITMQ_EXCHANGE', "clowder")
+rabbitmqExchange = os.getenv('RABBITMQ_EXCHANGE', "terra")
 
 # type of files to process
 messageType = "*.file.application.x-netcdf"
