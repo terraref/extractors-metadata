@@ -2,12 +2,7 @@
 import logging
 from config import *
 import pyclowder.extractors as extractors
-import utm
-import time
-import json
-import requests
-
-
+import subprocess
 
 def main():
 	global extractorName, messageType, rabbitmqExchange, rabbitmqURL, registrationEndpoints, mountedPaths
