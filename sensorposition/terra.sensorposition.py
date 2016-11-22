@@ -41,7 +41,7 @@ def check_message(parameters):
 	if 'metadata' in parameters:
 		gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime = fetch_md_parts(parameters['metadata'])
 		if gantry_x and gantry_y and loc_cambox_x and loc_cambox_y and fov_x and fov_y:
-			return True
+			return "bypass"
 
 	# If we didn't find required metadata info, don't process this dataset
 	print("Did not find required geopositional metadata; skipping %s" % parameters['datasetId'])
