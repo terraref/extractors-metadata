@@ -36,16 +36,16 @@ registrationEndpoints = os.getenv('REGISTRATION_ENDPOINTS', "")
 mountedPaths = {"/home/clowder/sites": "/home/extractor/sites"}
 
 # Map of {physical_sensor : geostream_stream_id} for Clowder Geostreams API datapoints; uses stream_id=99 if not found
-geostream_map = {   "stereoTop": "5",
+geostream_map = {   "stereoTop": "3",
                     "flirIr": "6",
-                    "co2Sensor": "7",
-                    "cropCircle": "8",
-                    "priSensor": "9",
-                    "scanner3DTop": "11",
-                    "ndviSensor": "10",
-                    "ps2Top": "12",
-                    "SWIR": "13",
-                    "VNIR": "2"
+                    "co2Sensor": "2",
+                    "cropCircle": "1",
+                    "priSensor": "5",
+                    "scanner3DTop": "8",
+                    "ndviSensor": "7",
+                    "ps2Top": "10",
+                    "SWIR": "9",
+                    "VNIR": "4"
                  }
 
 # Main sensor/site to post streams & datapoints into
