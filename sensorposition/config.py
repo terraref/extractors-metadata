@@ -37,7 +37,7 @@ mountedPaths = {"/home/clowder/sites": "/home/extractor/sites"}
 
 # Map of {physical_sensor : geostream_stream_id} for Clowder Geostreams API datapoints; uses stream_id=99 if not found
 geostream_map = {   "stereoTop": "3",
-                    "flirIr": "6",
+                    "flirIrCamera": "6",
                     "co2Sensor": "2",
                     "cropCircle": "1",
                     "priSensor": "5",
