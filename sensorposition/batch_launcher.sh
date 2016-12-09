@@ -1,5 +1,5 @@
 #!/bin/bash
-# this script is called to invoke one instance of flir extractor.
+# this script is called to invoke one instance of sensorposition extractor.
 
 # Load necessary modules
 module purge

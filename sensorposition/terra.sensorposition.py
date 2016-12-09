@@ -1,169 +1,163 @@
 #!/usr/bin/env python
+
 import logging
-from config import *
-import pyclowder.extractors as extractors
 import utm
 import time
 import json
 import requests
 
+from pyclowder.extractors import Extractor
+from pyclowder.utils import CheckMessage
+import pyclowder.files
+import pyclowder.datasets
 
 
-def main():
-	global extractorName, messageType, rabbitmqExchange, rabbitmqURL, registrationEndpoints, mountedPaths
+class Sensorposition2Geostreams(Extractor):
+	def __init__(self):
+		Extractor.__init__(self)
 
-	#set logging
-	logging.basicConfig(format='%(levelname)-7s : %(name)s -  %(message)s', level=logging.WARN)
-	logging.getLogger('pyclowder.extractors').setLevel(logging.INFO)
-	logger = logging.getLogger('extractor')
-	logger.setLevel(logging.DEBUG)
+		# add any additional arguments to parser
+		# self.parser.add_argument('--max', '-m', type=int, nargs='?', default=-1,
+		#                          help='maximum number (default=-1)')
+		self.parser.add_argument('--geostreams', dest="geostream_map", type=str, nargs='?',
+								 default=('{"stereoTop": "3","flirIrCamera": "6","co2Sensor": "2",' +
+										 '"cropCircle": "1","priSensor": "5","scanner3DTop": "8",' +
+										 '"ndviSensor": "7","ps2Top": "10","SWIR": "9","VNIR": "4"}'),
+								 help="mapping of sensor name to geostream ID for Clowder instance")
 
-	# setup
-	extractors.setup(extractorName=extractorName,
-					 messageType=messageType,
-					 rabbitmqURL=rabbitmqURL,
-					 rabbitmqExchange=rabbitmqExchange,
-					 mountedPaths=mountedPaths)
+		# parse command line and load default logging configuration
+		self.setup()
 
-	# register extractor info
-	extractors.register_extractor(registrationEndpoints)
+		# setup logging for the exctractor
+		logging.getLogger('pyclowder').setLevel(logging.DEBUG)
+		logging.getLogger('__main__').setLevel(logging.DEBUG)
 
-	#connect to rabbitmq
-	extractors.connect_message_bus(extractorName=extractorName,
-								   messageType=messageType,
-								   processFileFunction=process_metadata,
-								   checkMessageFunction=check_message,
-								   rabbitmqExchange=rabbitmqExchange,
-								   rabbitmqURL=rabbitmqURL)
+		# assign other arguments
+		self.geostream_map = json.loads(self.args.geostream_map)
 
-# Check whether dataset has geospatial metadata
-def check_message(parameters):
-	if 'metadata' in parameters:
+	# Check whether dataset has geospatial metadata
+	def check_message(self, connector, host, secret_key, resource, parameters):
+		if 'metadata' in parameters:
+			gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime = fetch_md_parts(parameters['metadata'])
+			if gantry_x and gantry_y and loc_cambox_x and loc_cambox_y and fov_x and fov_y:
+				return CheckMessage.bypass
+
+		# If we didn't find required metadata info, don't process this dataset
+		logging.info("...did not find required geopositional metadata; skipping %s" % resource['id'])
+		return CheckMessage.ignore
+
+	# Process the file and upload the results
+	def process_message(self, connector, host, secret_key, resource, parameters):
+		# Get sensor name from dataset name, e.g. "stereoTop 2016-01-01__12-12-12-123" = "stereoTop"
+		sensor_name = resource['dataset_info']['name']
+		if sensor_name.find(' - ') > -1:
+			sensor_name = sensor_name.split(' - ')[0]
+
+		# Pull positional information from metadata
 		gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime = fetch_md_parts(parameters['metadata'])
-		if gantry_x and gantry_y and loc_cambox_x and loc_cambox_y and fov_x and fov_y:
-			return "bypass"
 
-	# If we didn't find required metadata info, don't process this dataset
-	print("Did not find required geopositional metadata; skipping %s" % parameters['datasetId'])
-	return False
+		# Convert positional information into FOV polygon -----------------------------------------------------
+		# GANTRY GEOM (LAT-LONG) ##############
+		# NW: 33d 04.592m N , -111d 58.505m W #
+		# NE: 33d 04.591m N , -111d 58.487m W #
+		# SW: 33d 04.474m N , -111d 58.505m W #
+		# SE: 33d 04.470m N , -111d 58.485m W #
+		#######################################
+		SE_latlon = (33.0745, -111.97475)
+		SE_utm = utm.from_latlon(SE_latlon[0], SE_latlon[1])
 
-# Process the file and upload the results
-def process_metadata(parameters):
-	global geostream_map
+		# GANTRY GEOM (GANTRY CRS) ############
+		#			      N(x)                #
+		#			      ^                   #
+		#			      |                   #
+		#			      |                   #
+		#			      |                   #
+		#      W(y)<------SE                  #
+		#                                     #
+		# NW: (207.3,	22.135,	5.5)          #
+		# SE: (3.8,	0.0,	0.0)              #
+		#######################################
+		SE_offset_x = 3.8
+		SE_offset_y = 0
 
-	host = parameters['host']
-	key = parameters['secretKey']
-	# Get sensor name from dataset name, e.g. "stereoTop 2016-01-01__12-12-12-123" = "stereoTop"
-	sensor_name = parameters['datasetInfo']['name']
-	if sensor_name.find(' - ') > -1:
-		sensor_name = sensor_name.split(' - ')[0]
+		# Determine sensor position relative to origin and get lat/lon
+		gantry_utm_x = SE_utm[0] - (gantry_y - SE_offset_y)
+		gantry_utm_y = SE_utm[1] + (gantry_x - SE_offset_x)
+		sensor_utm_x = gantry_utm_x - loc_cambox_y
+		sensor_utm_y = gantry_utm_y + loc_cambox_x
+		sensor_latlon = utm.to_latlon(sensor_utm_x, sensor_utm_y, SE_utm[2], SE_utm[3])
+		print("sensor lat/lon: %s" % str(sensor_latlon))
 
-	# Pull positional information from metadata
-	gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime = fetch_md_parts(parameters['metadata'])
+		# Determine field of view (assumes F.O.V. X&Y are based on center of sensor)
+		fov_NW_utm_x = sensor_utm_x - fov_y/2
+		fov_NW_utm_y = sensor_utm_y + fov_x/2
+		fov_SE_utm_x = sensor_utm_x + fov_y/2
+		fov_SE_utm_y = sensor_utm_y - fov_x/2
+		fov_nw_latlon = utm.to_latlon(fov_NW_utm_x, fov_NW_utm_y, SE_utm[2],SE_utm[3])
+		fov_se_latlon = utm.to_latlon(fov_SE_utm_x, fov_SE_utm_y, SE_utm[2], SE_utm[3])
+		print("F.O.V. NW lat/lon: %s" % str(fov_nw_latlon))
+		print("F.O.V. SE lat/lon: %s" % str(fov_se_latlon))
 
-	# Convert positional information into FOV polygon -----------------------------------------------------
-	# GANTRY GEOM (LAT-LONG) ##############
-	# NW: 33d 04.592m N , -111d 58.505m W #
-	# NE: 33d 04.591m N , -111d 58.487m W #
-	# SW: 33d 04.474m N , -111d 58.505m W #
-	# SE: 33d 04.470m N , -111d 58.485m W #
-	#######################################
-	SE_latlon = (33.0745, -111.97475)
-	SE_utm = utm.from_latlon(SE_latlon[0], SE_latlon[1])
+		# Upload data into Geostreams API -----------------------------------------------------
+		fileIdList = []
+		for f in parameters['filelist']:
+			fileIdList.append(f['id'])
 
-	# GANTRY GEOM (GANTRY CRS) ############
-	#			      N(x)                #
-	#			      ^                   #
-	#			      |                   #
-	#			      |                   #
-	#			      |                   #
-	#      W(y)<------SE                  #
-    #                                     #
-	# NW: (207.3,	22.135,	5.5)          #
-	# SE: (3.8,	0.0,	0.0)              #
-	#######################################
-	SE_offset_x = 3.8
-	SE_offset_y = 0
+		# Metadata for datapoint properties
+		if (sensor_name in self.geostream_map):
+			stream_id = self.geostream_map[sensor_name]
+		else:
+			stream_id = get_stream_id(host, secret_key, sensor_name)
+			if not stream_id:
+				stream_id = create_stream(host, secret_key, sensor_name, {
+					"type": "Point",
+					"coordinates": sensor_latlon
+				})
 
-	# Determine sensor position relative to origin and get lat/lon
-	gantry_utm_x = SE_utm[0] - (gantry_y - SE_offset_y)
-	gantry_utm_y = SE_utm[1] + (gantry_x - SE_offset_x)
-	sensor_utm_x = gantry_utm_x - loc_cambox_y
-	sensor_utm_y = gantry_utm_y + loc_cambox_x
-	sensor_latlon = utm.to_latlon(sensor_utm_x, sensor_utm_y, SE_utm[2], SE_utm[3])
-	print("sensor lat/lon: %s" % str(sensor_latlon))
-
-	# Determine field of view (assumes F.O.V. X&Y are based on center of sensor)
-	fov_NW_utm_x = sensor_utm_x - fov_y/2
-	fov_NW_utm_y = sensor_utm_y + fov_x/2
-	fov_SE_utm_x = sensor_utm_x + fov_y/2
-	fov_SE_utm_y = sensor_utm_y - fov_x/2
-	fov_nw_latlon = utm.to_latlon(fov_NW_utm_x, fov_NW_utm_y, SE_utm[2],SE_utm[3])
-	fov_se_latlon = utm.to_latlon(fov_SE_utm_x, fov_SE_utm_y, SE_utm[2], SE_utm[3])
-	print("F.O.V. NW lat/lon: %s" % str(fov_nw_latlon))
-	print("F.O.V. SE lat/lon: %s" % str(fov_se_latlon))
-
-	# Upload data into Geostreams API -----------------------------------------------------
-	fileIdList = []
-	for f in parameters['filelist']:
-		fileIdList.append(f['id'])
-
-	# Metadata for datapoint properties
-	if (sensor_name in geostream_map):
-		stream_id = geostream_map[sensor_name]
-	else:
-		stream_id = get_stream_id(host, key, sensor_name)
-		if not stream_id:
-			stream_id = create_stream(host, key, sensor_name, {
+		print("posting datapoint to stream %s" % stream_id)
+		metadata = {
+			"sources": host+"datasets/"+resource['id'],
+			"file_ids": ",".join(fileIdList),
+			"centroid": {
 				"type": "Point",
-				"coordinates": sensor_latlon
-			})
-
-	print("posting datapoint to stream %s" % stream_id)
-	metadata = {
-		"sources": host+"datasets/"+parameters['datasetId'],
-		"file_ids": ",".join(fileIdList),
-		"centroid": {
-			"type": "Point",
-			"coordinates": [sensor_latlon[1], sensor_latlon[0]]
-		},
-		"fov": {
-			"type": "Polygon",
-			"coordinates": [[[fov_nw_latlon[1], fov_nw_latlon[0], 0],
-							 [fov_se_latlon[1], fov_se_latlon[0], 0] ]]
-		}
-	}
-
-	# Format time properly, adding UTC if missing from Danforth timestamp
-	time_obj = time.strptime(ctime, "%m/%d/%Y %H:%M:%S")
-	time_fmt = time.strftime('%Y-%m-%dT%H:%M:%S', time_obj)
-	if len(time_fmt) == 19:
-		time_fmt += "-06:00"
-
-	# Actual data to be sent to Geostreams
-	body = {"start_time": time_fmt,
-			"end_time": time_fmt,
-			"type": "Point",
-			# TODO: Make this send the FOV polygon once Clowder supports it
-			"geometry": {
-				"type": "Point",
-				"coordinates": [sensor_latlon[1], sensor_latlon[0], 0]
+				"coordinates": [sensor_latlon[1], sensor_latlon[0]]
 			},
-			"properties": metadata,
-			"stream_id": stream_id
-	}
+			"fov": {
+				"type": "Polygon",
+				"coordinates": [[[fov_nw_latlon[1], fov_nw_latlon[0], 0],
+								 [fov_se_latlon[1], fov_se_latlon[0], 0] ]]
+			}
+		}
 
-	# Make the POST
-	r = requests.post(os.path.join(host,'api/geostreams/datapoints?key=%s' % key),
-					  	data=json.dumps(body),
-					  	headers={'Content-type': 'application/json'})
+		# Format time properly, adding UTC if missing from Danforth timestamp
+		time_obj = time.strptime(ctime, "%m/%d/%Y %H:%M:%S")
+		time_fmt = time.strftime('%Y-%m-%dT%H:%M:%S', time_obj)
+		if len(time_fmt) == 19:
+			time_fmt += "-06:00"
 
-	if r.status_code != 200:
-		print("ERROR: Could not add datapoint to stream : [%s]" %  r.status_code)
-	else:
-		print "Successfully added datapoint."
-	return
+		# Actual data to be sent to Geostreams
+		body = {"start_time": time_fmt,
+				"end_time": time_fmt,
+				"type": "Point",
+				# TODO: Make this send the FOV polygon once Clowder supports it
+				"geometry": {
+					"type": "Point",
+					"coordinates": [sensor_latlon[1], sensor_latlon[0], 0]
+				},
+				"properties": metadata,
+				"stream_id": stream_id
+		}
 
+		# Make the POST
+		r = requests.post(os.path.join(host,'api/geostreams/datapoints?key=%s' % key),
+							data=json.dumps(body),
+							headers={'Content-type': 'application/json'})
+
+		if r.status_code != 200:
+			print("ERROR: Could not add datapoint to stream : [%s]" %  r.status_code)
+		else:
+			print "Successfully added datapoint."
+		return
 
 # Try several variations on each position field to get all required information
 def fetch_md_parts(metadata):
@@ -303,7 +297,6 @@ def parse_as_float(val):
 	except AttributeError:
 		return val
 
-
-
 if __name__ == "__main__":
-	main()
+	extractor = Sensorposition2Geostreams()
+	extractor.start()
