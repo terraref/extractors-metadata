@@ -8,8 +8,6 @@ import requests
 
 from pyclowder.extractors import Extractor
 from pyclowder.utils import CheckMessage
-import pyclowder.files
-import pyclowder.datasets
 
 
 class Sensorposition2Geostreams(Extractor):
@@ -19,6 +17,7 @@ class Sensorposition2Geostreams(Extractor):
 		# add any additional arguments to parser
 		# self.parser.add_argument('--max', '-m', type=int, nargs='?', default=-1,
 		#                          help='maximum number (default=-1)')
+		# TODO: Get this from Geostreams API
 		self.parser.add_argument('--geostreams', dest="geostream_map", type=str, nargs='?',
 								 default=('{"stereoTop": "3","flirIrCamera": "6","co2Sensor": "2",' +
 										 '"cropCircle": "1","priSensor": "5","scanner3DTop": "8",' +
