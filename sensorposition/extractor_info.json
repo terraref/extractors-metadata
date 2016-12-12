@@ -1,12 +1,17 @@
 {
     "@context": "http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
     "name": "terra.sensorposition",
-    "version": "1.0",
+    "version": "2.0",
     "description": "Geospatial Sensor Position Extractor",
     "author": "Yaping Cai <cai25@illinois.edu>",
     "contributors": [],
     "contexts": [],
     "repository": {"repType": "git", "repUrl": "https://github.com/terraref/extractors-metadata.git"},
+    "process": {
+        "metadata": [
+            "added"
+        ]
+    },
     "external_services": [],
     "dependencies": [],
     "bibtex": []

@@ -1,12 +1,17 @@
 {
     "@context": "http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
     "name": "terra.netcdf",
-    "version": "1.0",
+    "version": "2.0",
     "description": "NetCDF Metadata Extractor",
     "author": "Yan Liu <yanliu@illinois.edu>",
     "contributors": [],
     "contexts": [],
     "repository": {"repType": "git", "repUrl": "https://github.com/terraref/extractors-metadata.git"},
+    "process": {
+        "file": [
+            "application/x-netcdf"
+        ]
+    },
     "external_services": [],
     "dependencies": [],
     "bibtex": []
