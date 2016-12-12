@@ -18,11 +18,9 @@ class Sensorposition2Geostreams(Extractor):
 		# self.parser.add_argument('--max', '-m', type=int, nargs='?', default=-1,
 		#                          help='maximum number (default=-1)')
 		# TODO: Get this from Geostreams API
-		self.parser.add_argument('--geostreams', dest="geostream_map", type=str, nargs='?',
-								 default=('{"stereoTop": "3","flirIrCamera": "6","co2Sensor": "2",' +
-										 '"cropCircle": "1","priSensor": "5","scanner3DTop": "8",' +
-										 '"ndviSensor": "7","ps2Top": "10","SWIR": "9","VNIR": "4"}'),
-								 help="mapping of sensor name to geostream ID for Clowder instance")
+		self.parser.add_argument('--sensor', dest="sensor_id", type=str, nargs='?',
+								 default=('2'),
+								 help="sensor ID where streams and datapoints should be posted")
 
 		# parse command line and load default logging configuration
 		self.setup()
@@ -32,7 +30,7 @@ class Sensorposition2Geostreams(Extractor):
 		logging.getLogger('__main__').setLevel(logging.DEBUG)
 
 		# assign other arguments
-		self.geostream_map = json.loads(self.args.geostream_map)
+		self.sensor_id = self.args.sensor_id
 
 	# Check whether dataset has geospatial metadata
 	def check_message(self, connector, host, secret_key, resource, parameters):
@@ -85,7 +83,7 @@ class Sensorposition2Geostreams(Extractor):
 		sensor_utm_x = gantry_utm_x - loc_cambox_y
 		sensor_utm_y = gantry_utm_y + loc_cambox_x
 		sensor_latlon = utm.to_latlon(sensor_utm_x, sensor_utm_y, SE_utm[2], SE_utm[3])
-		print("sensor lat/lon: %s" % str(sensor_latlon))
+		logging.debug("sensor lat/lon: %s" % str(sensor_latlon))
 
 		# Determine field of view (assumes F.O.V. X&Y are based on center of sensor)
 		fov_NW_utm_x = sensor_utm_x - fov_y/2
@@ -94,26 +92,23 @@ class Sensorposition2Geostreams(Extractor):
 		fov_SE_utm_y = sensor_utm_y - fov_x/2
 		fov_nw_latlon = utm.to_latlon(fov_NW_utm_x, fov_NW_utm_y, SE_utm[2],SE_utm[3])
 		fov_se_latlon = utm.to_latlon(fov_SE_utm_x, fov_SE_utm_y, SE_utm[2], SE_utm[3])
-		print("F.O.V. NW lat/lon: %s" % str(fov_nw_latlon))
-		print("F.O.V. SE lat/lon: %s" % str(fov_se_latlon))
+		logging.debug("F.O.V. NW lat/lon: %s" % str(fov_nw_latlon))
+		logging.debug("F.O.V. SE lat/lon: %s" % str(fov_se_latlon))
 
 		# Upload data into Geostreams API -----------------------------------------------------
 		fileIdList = []
-		for f in parameters['filelist']:
+		for f in resource['files']:
 			fileIdList.append(f['id'])
 
 		# Metadata for datapoint properties
-		if (sensor_name in self.geostream_map):
-			stream_id = self.geostream_map[sensor_name]
-		else:
-			stream_id = get_stream_id(host, secret_key, sensor_name)
-			if not stream_id:
-				stream_id = create_stream(host, secret_key, sensor_name, {
-					"type": "Point",
-					"coordinates": sensor_latlon
-				})
+		stream_id = get_stream_id(host, secret_key, sensor_name)
+		if not stream_id:
+			stream_id = create_stream(host, secret_key, self.sensor_id, sensor_name, {
+				"type": "Point",
+				"coordinates": sensor_latlon
+			})
 
-		print("posting datapoint to stream %s" % stream_id)
+		logging.info("posting datapoint to stream %s" % stream_id)
 		metadata = {
 			"sources": host+"datasets/"+resource['id'],
 			"file_ids": ",".join(fileIdList),
@@ -153,9 +148,9 @@ class Sensorposition2Geostreams(Extractor):
 							headers={'Content-type': 'application/json'})
 
 		if r.status_code != 200:
-			print("ERROR: Could not add datapoint to stream : [%s]" %  r.status_code)
+			logging.error("Could not add datapoint to stream : [%s]" %  r.status_code)
 		else:
-			print "Successfully added datapoint."
+			logging.info("successfully added datapoint")
 		return
 
 # Try several variations on each position field to get all required information
@@ -242,7 +237,7 @@ def get_stream_id(host, key, name):
 		host = host+"/"
 
 	url = "%sapi/geostreams/streams?stream_name=%s&key=%s" % (host, name, key)
-	print("...searching for stream ID: "+url)
+	logging.debug("...searching for stream : "+name)
 	r = requests.get(url)
 	if r.status_code == 200:
 		json_data = r.json()
@@ -254,9 +249,7 @@ def get_stream_id(host, key, name):
 
 	return None
 
-def create_stream(host, key, name, geom):
-	global sensor_id
-
+def create_stream(host, key, sensor_id, name, geom):
 	if(not host.endswith("/")):
 		host = host+"/"
 
@@ -269,14 +262,14 @@ def create_stream(host, key, name, geom):
 	}
 
 	url = "%sapi/geostreams/streams?key=%s" % (host, key)
-	print("...creating new stream: "+name)
+	logging.info("...creating new stream: "+name)
 	r = requests.post(url,
 					  data=json.dumps(body),
 					  headers={'Content-type': 'application/json'})
 	if r.status_code == 200:
 		return r.json()['id']
 	else:
-		print("error creating stream")
+		logging.error("error creating stream")
 
 	return None
 

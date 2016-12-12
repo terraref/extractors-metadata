@@ -65,14 +65,14 @@ class NetCDFMetadataConversion(Extractor):
 			subPath = ds_name
 		outPath = os.path.join(self.output_dir, subPath, resource['name'].replace(".nc", ""))
 
-		print '...extracting metadata in cdl format'
+		logging.info('...extracting metadata in cdl format')
 		metaFilePath = outPath + '.cdl'
 		with open(metaFilePath, 'w') as fmeta:
 			subprocess.call(['ncks', '--cdl', '-m', '-M', resource['local_paths'][0]], stdout=fmeta)
 		if os.path.exists(metaFilePath):
 			pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent_dataset_id'], metaFilePath)
 
-		print '...extracting metadata in xml format'
+		logging.info('...extracting metadata in xml format')
 		metaFilePath = outPath + '.xml'
 		with open(metaFilePath, 'w') as fmeta:
 			subprocess.call(['ncks', '--xml', '-m', '-M', resource['local_paths'][0]], stdout=fmeta)
