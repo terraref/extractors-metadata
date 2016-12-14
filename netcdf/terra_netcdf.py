@@ -79,6 +79,13 @@ class NetCDFMetadataConversion(Extractor):
 		if os.path.exists(metaFilePath):
 			pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent_dataset_id'], metaFilePath)
 
+		logging.info('...extracting metadata in json format')
+		metaFilePath = outPath + '.json'
+		with open(metaFilePath, 'w') as fmeta:
+			subprocess.call(['ncks', '--jsn', '-m', '-M', resource['local_paths'][0]], stdout=fmeta)
+		if os.path.exists(metaFilePath):
+			pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent_dataset_id'], metaFilePath)
+
 if __name__ == "__main__":
 	extractor = NetCDFMetadataConversion()
 	extractor.start()
