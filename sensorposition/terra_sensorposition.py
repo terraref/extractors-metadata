@@ -17,7 +17,6 @@ class Sensorposition2Geostreams(Extractor):
 		# add any additional arguments to parser
 		# self.parser.add_argument('--max', '-m', type=int, nargs='?', default=-1,
 		#                          help='maximum number (default=-1)')
-		# TODO: Get this from Geostreams API
 		self.parser.add_argument('--sensor', dest="sensor_id", type=str, nargs='?',
 								 default=('2'),
 								 help="sensor ID where streams and datapoints should be posted")
