@@ -77,13 +77,13 @@ ENV PATH="/srv/sw/gdal/bin:${PATH}" \
 
 # nco
 RUN cd /srv/downloads && \
-    wget -q https://github.com/nco/nco/archive/4.6.1.tar.gz -O nco-4.6.1.tar.gz && \
-    tar xfz nco-4.6.1.tar.gz && \
-    cd nco-4.6.1 && \
-    ./configure NETCDF_ROOT=/srv/sw/netcdf-4.4.1 --prefix=/srv/sw/nco-4.6.1 --enable-ncap2 --enable-udunits2 && \
+    wget -q https://github.com/nco/nco/archive/4.6.2-beta01.tar.gz -O nco-4.6.2-beta01.tar.gz && \
+    tar xfz nco-4.6.2-beta01.tar.gz && \
+    cd nco-4.6.2-beta01 && \
+    ./configure NETCDF_ROOT=/srv/sw/netcdf-4.4.1 --prefix=/srv/sw/nco-4.6.2-beta01 --enable-ncap2 --enable-udunits2 && \
     make && make install
-ENV PATH="/srv/sw/nco-4.6.1/bin:${PATH}" \
-    LD_LIBRARY_PATH="/srv/sw/nco-4.6.1/lib:${LD_LIBRARY_PATH}"
+ENV PATH="/srv/sw/nco-4.6.2-beta01/bin:${PATH}" \
+    LD_LIBRARY_PATH="/srv/sw/nco-4.6.2-beta01/lib:${LD_LIBRARY_PATH}"
 
 ENV USERHOME="/home/ubuntu"
 WORKDIR "${USERHOME}"
