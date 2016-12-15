@@ -139,7 +139,7 @@ class Sensorposition2Geostreams(Extractor):
 					"coordinates": [sensor_latlon[1], sensor_latlon[0], 0]
 				},
 				"properties": metadata,
-				"stream_id": stream_id
+				"stream_id": str(stream_id)
 		}
 
 		# Make the POST
