@@ -1,0 +1,13 @@
+[Unit]
+Description=NetCDF Metadata Extractor
+After=network.target
+
+[Service]
+User=extractor
+Group=users
+Restart=on-failure
+WorkingDirectory=/home/extractor/extractors-metadata/netcdf
+ExecStart=/usr/bin/python /home/extractor/extractors-metadata/netcdf/terra_netcdf.py
+
+[Install]
+WantedBy=multi-user.target

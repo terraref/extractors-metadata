@@ -1,0 +1,13 @@
+[Unit]
+Description=Geospatial Sensor Position Extractor
+After=network.target
+
+[Service]
+User=extractor
+Group=users
+Restart=on-failure
+WorkingDirectory=/home/extractor/extractors-metadata/sensorposition
+ExecStart=/usr/bin/python /home/extractor/extractors-metadata/sensorposition/terra_sensorposition.py
+
+[Install]
+WantedBy=multi-user.target
