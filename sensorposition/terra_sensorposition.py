@@ -2,6 +2,7 @@
 
 import logging
 import utm
+import os
 import time
 import json
 import requests
@@ -142,7 +143,7 @@ class Sensorposition2Geostreams(Extractor):
 		}
 
 		# Make the POST
-		r = requests.post(os.path.join(host,'api/geostreams/datapoints?key=%s' % key),
+		r = requests.post(os.path.join(host,'api/geostreams/datapoints?key=%s' % secret_key),
 							data=json.dumps(body),
 							headers={'Content-type': 'application/json'})
 
