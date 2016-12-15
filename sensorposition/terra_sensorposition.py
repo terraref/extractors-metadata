@@ -34,8 +34,8 @@ class Sensorposition2Geostreams(Extractor):
 
 	# Check whether dataset has geospatial metadata
 	def check_message(self, connector, host, secret_key, resource, parameters):
-		if 'metadata' in parameters:
-			gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime = fetch_md_parts(parameters['metadata'])
+		if 'metadata' in resource:
+			gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime = fetch_md_parts(resource['metadata'])
 			if gantry_x and gantry_y and loc_cambox_x and loc_cambox_y and fov_x and fov_y:
 				return CheckMessage.bypass
 
@@ -51,7 +51,7 @@ class Sensorposition2Geostreams(Extractor):
 			sensor_name = sensor_name.split(' - ')[0]
 
 		# Pull positional information from metadata
-		gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime = fetch_md_parts(parameters['metadata'])
+		gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime = fetch_md_parts(resource['metadata'])
 
 		# Convert positional information into FOV polygon -----------------------------------------------------
 		# GANTRY GEOM (LAT-LONG) ##############
