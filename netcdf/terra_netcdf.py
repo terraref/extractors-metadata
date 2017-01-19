@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import logging
+import tempfile
 import os, shutil
 import subprocess
 
