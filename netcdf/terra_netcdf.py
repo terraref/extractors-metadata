@@ -76,6 +76,10 @@ class NetCDFMetadataConversion(Extractor):
 		else:
 			inPath = resource['local_paths'][0]
 
+		if os.path.isfile(inPath):
+			logging.info("input: "+inPath)
+			logging.info("output: "+outPath)
+
 		logging.info('...extracting metadata in cdl format')
 		metaFilePath = outPath + '.cdl'
 		with open(metaFilePath, 'w') as fmeta:
