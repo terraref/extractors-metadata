@@ -68,7 +68,7 @@ class NetCDFMetadataConversion(Extractor):
 			temp_dir = None
 			outPath = os.path.join(self.output_dir, subPath, resource['name'].replace(".nc", ""))
 		else:
-			temp_dir = tempfile.mkdtemp
+			temp_dir = tempfile.mkdtemp()
 			outPath = os.path.join(temp_dir, resource['name'].replace(".nc", ""))
 
 		if 'local_path' in resource:
