@@ -63,7 +63,10 @@ class NetCDFMetadataConversion(Extractor):
 			subPath = os.path.join(sensor_name, timestamp)
 		else:
 			subPath = ds_name
-		outPath = os.path.join(self.output_dir, subPath, resource['name'].replace(".nc", ""))
+		if self.output_dir != '':
+			outPath = os.path.join(self.output_dir, subPath, resource['name'].replace(".nc", ""))
+		else:
+			outPath = resource['name'].replace(".nc", "")
 
 		logging.info('...extracting metadata in cdl format')
 		metaFilePath = outPath + '.cdl'
