@@ -68,42 +68,41 @@ class NetCDFMetadataConversion(Extractor):
 			temp_dir = None
 			outPath = os.path.join(self.output_dir, subPath, resource['name'].replace(".nc", ""))
 			inPath = resource['local_paths'][0]
-			temp_in_path = inPath
 		else:
 			temp_dir = tempfile.mkdtemp()
 			outPath = os.path.join(temp_dir, resource['name'].replace(".nc", ""))
-			temp_in_path = os.path.basename(inPath)
-			shutil.copyfile(inPath, temp_in_path)
+			inPath = os.path.basename(resource['local_paths'][0])
+			shutil.copyfile(resource['local_paths'][0], inPath)
 
 
 		if os.path.isfile(inPath):
-			logging.info("input: "+temp_in_path)
+			logging.info("input: "+inPath)
 			logging.info("output: "+outPath)
 
 		logging.info('...extracting metadata in cdl format')
 		metaFilePath = outPath + '.cdl'
 		with open(metaFilePath, 'w') as fmeta:
-			subprocess.call(['ncks', '--cdl', '-m', '-M', temp_in_path], stdout=fmeta)
+			subprocess.call(['ncks', '--cdl', '-m', '-M', inPath], stdout=fmeta)
 		if os.path.exists(metaFilePath):
 			pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
 
 		logging.info('...extracting metadata in xml format')
 		metaFilePath = outPath + '.xml'
 		with open(metaFilePath, 'w') as fmeta:
-			subprocess.call(['ncks', '--xml', '-m', '-M', temp_in_path], stdout=fmeta)
+			subprocess.call(['ncks', '--xml', '-m', '-M', inPath], stdout=fmeta)
 		if os.path.exists(metaFilePath):
 			pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
 
 		logging.info('...extracting metadata in json format')
 		metaFilePath = outPath + '.json'
 		with open(metaFilePath, 'w') as fmeta:
-			subprocess.call(['ncks', '--jsn', '-m', '-M', temp_in_path], stdout=fmeta)
+			subprocess.call(['ncks', '--jsn', '-m', '-M', inPath], stdout=fmeta)
 		if os.path.exists(metaFilePath):
 			pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
 
 		if temp_dir:
 			shutil.rmtree(temp_dir)
-			os.remove(temp_in_path)
+			os.remove(inPath)
 
 if __name__ == "__main__":
 	extractor = NetCDFMetadataConversion()
