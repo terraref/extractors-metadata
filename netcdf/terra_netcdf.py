@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import logging
-import os
+import os, shutil
 import subprocess
 
 from pyclowder.extractors import Extractor
@@ -64,9 +64,11 @@ class NetCDFMetadataConversion(Extractor):
 		else:
 			subPath = ds_name
 		if self.output_dir != '':
+			temp_dir = None
 			outPath = os.path.join(self.output_dir, subPath, resource['name'].replace(".nc", ""))
 		else:
-			outPath = resource['name'].replace(".nc", "")
+			temp_dir = tempfile.mkdtemp
+			outPath = os.path.join(temp_dir, resource['name'].replace(".nc", ""))
 
 		if 'local_path' in resource:
 			inPath = resource['local_path']
@@ -93,6 +95,9 @@ class NetCDFMetadataConversion(Extractor):
 			subprocess.call(['ncks', '--jsn', '-m', '-M', inPath], stdout=fmeta)
 		if os.path.exists(metaFilePath):
 			pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
+
+		if temp_dir:
+			shutil.rmtree(temp_dir)
 
 if __name__ == "__main__":
 	extractor = NetCDFMetadataConversion()
