@@ -9,6 +9,7 @@ import requests
 
 from pyclowder.extractors import Extractor
 from pyclowder.utils import CheckMessage
+import pyclowder.datasets
 
 
 class Sensorposition2Geostreams(Extractor):
@@ -46,7 +47,12 @@ class Sensorposition2Geostreams(Extractor):
 	# Process the file and upload the results
 	def process_message(self, connector, host, secret_key, resource, parameters):
 		# Get sensor name from dataset name, e.g. "stereoTop 2016-01-01__12-12-12-123" = "stereoTop"
-		sensor_name = resource['dataset_info']['name']
+		if 'dataset_info' in resource:
+			sensor_name = resource['dataset_info']['name']
+		elif 'type' in resource and resource['type'] == 'dataset':
+			ds_info = pyclowder.datasets.get_info(connector, host, secret_key, resource['id'])
+			sensor_name = ds_info['name']
+
 		if sensor_name.find(' - ') > -1:
 			sensor_name = sensor_name.split(' - ')[0]
 
@@ -97,8 +103,10 @@ class Sensorposition2Geostreams(Extractor):
 
 		# Upload data into Geostreams API -----------------------------------------------------
 		fileIdList = []
-		for f in resource['files']:
-			fileIdList.append(f['id'])
+		if 'type' in resource and resource['type'] == 'dataset':
+			filelist = pyclowder.datasets.get_file_list(self, host, secret_key, resource['id'])
+			for f in filelist:
+				fileIdList.append(f['id'])
 
 		# Metadata for datapoint properties
 		stream_id = get_stream_id(host, secret_key, sensor_name)
@@ -110,7 +118,7 @@ class Sensorposition2Geostreams(Extractor):
 
 		logging.info("posting datapoint to stream %s" % stream_id)
 		metadata = {
-			"sources": host+"datasets/"+resource['id'],
+			"sources": host+resource['type']+"s/"+resource['id'],
 			"file_ids": ",".join(fileIdList),
 			"centroid": {
 				"type": "Point",
