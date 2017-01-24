@@ -113,7 +113,7 @@ class Sensorposition2Geostreams(Extractor):
 		if not stream_id:
 			stream_id = create_stream(host, secret_key, self.sensor_id, sensor_name, {
 				"type": "Point",
-				"coordinates": sensor_latlon
+				"coordinates": [sensor_latlon[1], sensor_latlon[0], 0]
 			})
 
 		logging.info("posting datapoint to stream %s" % stream_id)
