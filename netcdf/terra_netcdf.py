@@ -37,7 +37,7 @@ class NetCDFMetadataConversion(Extractor):
 
 		missing = False
 		for outpath in ['.cdl', 'xml', '.json']:
-			if not os.path.isfile(outPathRoot + resource['name'].replace(".nc", "") + outpath):
+			if not os.path.isfile(os.path.join(outPathRoot, resource['name'].replace(".nc", "")+outpath)):
 				missing = True
 
 		if missing:
@@ -60,28 +60,27 @@ class NetCDFMetadataConversion(Extractor):
 
 		if os.path.isfile(inPath):
 			logging.info("input: "+inPath)
-			logging.info("output: "+outPath)
+			logging.info("output dir: "+outPath)
 
-		metaFilePath = outPath + fileRoot + '.cdl'
+		metaFilePath = os.path.join(outPath, fileRoot+'.cdl')
 		if not os.path.isfile(metaFilePath):
-			logging.info('...extracting metadata in cdl format')
+			logging.info('...extracting metadata in cdl format: %s' % metaFilePath)
 			with open(metaFilePath, 'w') as fmeta:
 				subprocess.call(['ncks', '--cdl', '-m', '-M', inPath], stdout=fmeta)
 			if os.path.exists(metaFilePath):
 				pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
 
-		metaFilePath = outPath + fileRoot + '.xml'
+		metaFilePath = os.path.join(outPath, fileRoot+'.xml')
 		if not os.path.isfile(metaFilePath):
-			logging.info('...extracting metadata in xml format')
+			logging.info('...extracting metadata in xml format: %s' % metaFilePath)
 			with open(metaFilePath, 'w') as fmeta:
 				subprocess.call(['ncks', '--xml', '-m', '-M', inPath], stdout=fmeta)
 			if os.path.exists(metaFilePath):
 				pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
 
-
-		metaFilePath = outPath + fileRoot + '.json'
+		metaFilePath = os.path.join(outPath, fileRoot+'.json')
 		if not os.path.isfile(metaFilePath):
-			logging.info('...extracting metadata in json format')
+			logging.info('...extracting metadata in json format: %s' % metaFilePath)
 			with open(metaFilePath, 'w') as fmeta:
 				subprocess.call(['ncks', '--jsn', '-m', '-M', inPath], stdout=fmeta)
 			if os.path.exists(metaFilePath):
