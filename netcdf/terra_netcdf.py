@@ -33,11 +33,11 @@ class NetCDFMetadataConversion(Extractor):
 	# Check whether dataset already has output files
 	def check_message(self, connector, host, secret_key, resource, parameters):
 		ds_md = pyclowder.datasets.get_info(connector, host, secret_key, resource['parent']['id'])
-		outPathRoot = self.getOutputFilename(ds_md['name'], resource)
+		outPathRoot = self.getOutputFilename(ds_md['name'])
 
 		missing = False
 		for outpath in ['.cdl', 'xml', '.json']:
-			if not os.path.isfile(outPathRoot+outpath):
+			if not os.path.isfile(outPathRoot + resource['name'].replace(".nc", "") + outpath):
 				missing = True
 
 		if missing:
@@ -51,14 +51,18 @@ class NetCDFMetadataConversion(Extractor):
 		ds_md = pyclowder.datasets.get_info(connector, host, secret_key, resource['parent']['id'])
 
 		# Determine output file path
-		outPath = self.getOutputFilename(ds_md['name'], resource)
+		outPath = self.getOutputFilename(ds_md['name'])
+		if not os.path.isdir(outPath):
+			os.makedirs(outPath)
+
 		inPath = resource['local_paths'][0]
+		fileRoot = resource['name'].replace(".nc", "")
 
 		if os.path.isfile(inPath):
 			logging.info("input: "+inPath)
 			logging.info("output: "+outPath)
 
-		metaFilePath = outPath + '.cdl'
+		metaFilePath = outPath + fileRoot + '.cdl'
 		if not os.path.isfile(metaFilePath):
 			logging.info('...extracting metadata in cdl format')
 			with open(metaFilePath, 'w') as fmeta:
@@ -66,7 +70,7 @@ class NetCDFMetadataConversion(Extractor):
 			if os.path.exists(metaFilePath):
 				pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
 
-		metaFilePath = outPath + '.xml'
+		metaFilePath = outPath + fileRoot + '.xml'
 		if not os.path.isfile(metaFilePath):
 			logging.info('...extracting metadata in xml format')
 			with open(metaFilePath, 'w') as fmeta:
@@ -75,7 +79,7 @@ class NetCDFMetadataConversion(Extractor):
 				pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
 
 
-		metaFilePath = outPath + '.json'
+		metaFilePath = outPath + fileRoot + '.json'
 		if not os.path.isfile(metaFilePath):
 			logging.info('...extracting metadata in json format')
 			with open(metaFilePath, 'w') as fmeta:
@@ -83,7 +87,7 @@ class NetCDFMetadataConversion(Extractor):
 			if os.path.exists(metaFilePath):
 				pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
 
-	def getOutputFilename(self, ds_name, resource):
+	def getOutputFilename(self, ds_name):
 		# Determine output file path
 		if ds_name.find(" - ") > -1:
 			# sensor - timestamp
@@ -100,7 +104,7 @@ class NetCDFMetadataConversion(Extractor):
 		else:
 			subPath = ds_name
 
-		return os.path.join(self.output_dir, subPath, resource['name'].replace(".nc", ""))
+		return os.path.join(self.output_dir, subPath)
 
 if __name__ == "__main__":
 	extractor = NetCDFMetadataConversion()
