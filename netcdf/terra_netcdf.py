@@ -35,12 +35,12 @@ class NetCDFMetadataConversion(Extractor):
 		ds_md = pyclowder.datasets.get_info(connector, host, secret_key, resource['parent']['id'])
 		outPathRoot = self.getOutputFilename(ds_md['name'])
 
-		missing = False
+		foundAll = True
 		for outpath in ['.cdl', 'xml', '.json']:
-			if not os.path.isfile(os.path.join(outPathRoot, resource['name'].replace(".nc", "")+outpath)):
-				missing = True
+			if not os.path.isfile(os.path.join(outPathRoot, resource['name'].replace(".nc", outpath))):
+				foundAll = False
 
-		if missing:
+		if not foundAll:
 			return CheckMessage.download
 		else:
 			logger.info("skipping %s; outputs already exist" % resource['id'])
@@ -57,10 +57,6 @@ class NetCDFMetadataConversion(Extractor):
 
 		inPath = resource['local_paths'][0]
 		fileRoot = resource['name'].replace(".nc", "")
-
-		if os.path.isfile(inPath):
-			logging.info("input: "+inPath)
-			logging.info("output dir: "+outPath)
 
 		metaFilePath = os.path.join(outPath, fileRoot+'.cdl')
 		if not os.path.isfile(metaFilePath):
