@@ -11,17 +11,12 @@ from pyclowder.extractors import Extractor
 from pyclowder.utils import CheckMessage
 import pyclowder.datasets
 
+import plotid_by_latlon
+
 
 class Sensorposition2Geostreams(Extractor):
 	def __init__(self):
 		Extractor.__init__(self)
-
-		# add any additional arguments to parser
-		# self.parser.add_argument('--max', '-m', type=int, nargs='?', default=-1,
-		#                          help='maximum number (default=-1)')
-		self.parser.add_argument('--sensor', dest="sensor_id", type=str, nargs='?',
-								 default=('2'),
-								 help="sensor ID where streams and datapoints should be posted")
 
 		# parse command line and load default logging configuration
 		self.setup()
@@ -29,9 +24,6 @@ class Sensorposition2Geostreams(Extractor):
 		# setup logging for the exctractor
 		logging.getLogger('pyclowder').setLevel(logging.DEBUG)
 		logging.getLogger('__main__').setLevel(logging.DEBUG)
-
-		# assign other arguments
-		self.sensor_id = self.args.sensor_id
 
 	# Check whether dataset has geospatial metadata
 	def check_message(self, connector, host, secret_key, resource, parameters):
@@ -46,16 +38,6 @@ class Sensorposition2Geostreams(Extractor):
 
 	# Process the file and upload the results
 	def process_message(self, connector, host, secret_key, resource, parameters):
-		# Get sensor name from dataset name, e.g. "stereoTop 2016-01-01__12-12-12-123" = "stereoTop"
-		if 'dataset_info' in resource:
-			sensor_name = resource['dataset_info']['name']
-		elif 'type' in resource and resource['type'] == 'dataset':
-			ds_info = pyclowder.datasets.get_info(connector, host, secret_key, resource['id'])
-			sensor_name = ds_info['name']
-
-		if sensor_name.find(' - ') > -1:
-			sensor_name = sensor_name.split(' - ')[0]
-
 		# Pull positional information from metadata
 		gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime = fetch_md_parts(resource['metadata'])
 
@@ -108,10 +90,26 @@ class Sensorposition2Geostreams(Extractor):
 			for f in filelist:
 				fileIdList.append(f['id'])
 
-		# Metadata for datapoint properties
+		# SENSOR is the plot
+		plot_name = plotid_by_latlon.plotQuery('shp/sorghumexpfall2016v5_lblentry_1to7.shp',
+											   sensor_latlon[0], sensor_latlon[1])
+		sensor_id = get_sensor_id(host, secret_key, plot_name['plot'])
+		if not sensor_id:
+			sensor_id = create_sensor(host, secret_key, plot_name['plot'], plot_name['geom'])
+
+		# STREAM is plot x instrument
+		if 'dataset_info' in resource:
+			sensor_name = resource['dataset_info']['name']
+		elif 'type' in resource and resource['type'] == 'dataset':
+			ds_info = pyclowder.datasets.get_info(connector, host, secret_key, resource['id'])
+			sensor_name = ds_info['name']
+		if sensor_name.find(' - ') > -1:
+			sensor_name = sensor_name.split(' - ')[0]
+		sensor_name = sensor_name + " - " + plot_name
+
 		stream_id = get_stream_id(host, secret_key, sensor_name)
 		if not stream_id:
-			stream_id = create_stream(host, secret_key, self.sensor_id, sensor_name, {
+			stream_id = create_stream(host, secret_key, sensor_id, sensor_name, {
 				"type": "Point",
 				"coordinates": [sensor_latlon[1], sensor_latlon[0], 0]
 			})
@@ -238,6 +236,47 @@ def fetch_md_parts(metadata):
 				ctime = "unknown"
 
 	return gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime
+
+# Get sensor ID from Clowder based on plot name
+def get_sensor_id(host, key, name):
+	if(not host.endswith("/")):
+		host = host+"/"
+
+	url = "%sapi/geostreams/sensors?sensor_name=%s&key=%s" % (host, name, key)
+	logging.debug("...searching for sensor : "+name)
+	r = requests.get(url)
+	if r.status_code == 200:
+		json_data = r.json()
+		for s in json_data:
+			if 'name' in s and s['name'] == name:
+				return s['id']
+	else:
+		print("error searching for sensor ID")
+
+	return None
+
+def create_sensor(host, key, name, geom):
+	if(not host.endswith("/")):
+		host = host+"/"
+
+	body = {
+		"name": name,
+		"type": "point",
+		"geometry": geom,
+		"properties": {}
+	}
+
+	url = "%sapi/geostreams/sensors?key=%s" % (host, key)
+	logging.info("...creating new sensor: "+name)
+	r = requests.post(url,
+					  data=json.dumps(body),
+					  headers={'Content-type': 'application/json'})
+	if r.status_code == 200:
+		return r.json()['id']
+	else:
+		logging.error("error creating sensor")
+
+	return None
 
 # Get stream ID from Clowder based on stream name
 def get_stream_id(host, key, name):
