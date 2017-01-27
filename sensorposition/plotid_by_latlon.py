@@ -56,7 +56,7 @@ def plotQuery(shpFile = None, lon = 0, lat = 0):
         if (geom.Contains(point) or geom.Touches(point)): # GDAL needs to support Covers() for better efficiency
             #print "plotQuery(): INFO point in plot"
             ds = None
-            return {"plot":plotid, "geom":geom}
+            return {"plot":plotid, "geom":geom, "point": geom.getPoint()}
         # calc distance and update nearest
         d = geom.Distance(point)
         if (d < min):
@@ -69,7 +69,7 @@ def plotQuery(shpFile = None, lon = 0, lat = 0):
         print "plotQuery(): ERROR searched but couldn't find nearest plot. Check data file or the point. "
         return None
     #print "plotQuery(): INFO point not in plot"
-    return {"plot":minid, "geom":mingeom}
+    return {"plot":minid, "geom":mingeom, "point": mingeom.getPoint()}
 
 # Example run:
 # python plotid_by_latlon.py data/sorghumexpfall2016v5_lblentry_1to7.shp -111.97495668222 33.0760167027358

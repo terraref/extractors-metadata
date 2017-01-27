@@ -95,7 +95,10 @@ class Sensorposition2Geostreams(Extractor):
 											   sensor_latlon[0], sensor_latlon[1])
 		sensor_id = get_sensor_id(host, secret_key, plot_name['plot'])
 		if not sensor_id:
-			sensor_id = create_sensor(host, secret_key, plot_name['plot'], plot_name['geom'])
+			sensor_id = create_sensor(host, secret_key, plot_name['plot'], {
+				"type": "Point",
+				"coordinates": [plot_name['point'][1], plot_name['point'][0], plot_name['point'][2]]
+			})
 
 		# STREAM is plot x instrument
 		if 'dataset_info' in resource:
