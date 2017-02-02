@@ -98,7 +98,7 @@ class Sensorposition2Geostreams(Extractor):
 
 		# SENSOR is the plot
 		plot_info = plotid_by_latlon.plotQuery(self.plots_shp, sensor_latlon[1], sensor_latlon[0])
-		plot_name = "Range "+plot_info.replace("-", " Pass ")
+		plot_name = "Range "+plot_info['plot'].replace("-", " Pass ")
 		logging.info("...found plot: "+str(plot_info))
 		sensor_id = get_sensor_id(host, secret_key, plot_name)
 		if not sensor_id:
