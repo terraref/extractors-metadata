@@ -77,7 +77,7 @@ class Sensorposition2Geostreams(Extractor):
 		sensor_utm_x = gantry_utm_x - loc_cambox_y
 		sensor_utm_y = gantry_utm_y + loc_cambox_x
 		sensor_latlon = utm.to_latlon(sensor_utm_x, sensor_utm_y, SE_utm[2], SE_utm[3])
-		logging.debug("sensor lat/lon: %s" % str(sensor_latlon))
+		logging.info("sensor lat/lon: %s" % str(sensor_latlon))
 
 		# Determine field of view (assumes F.O.V. X&Y are based on center of sensor)
 		fov_NW_utm_x = sensor_utm_x - fov_y/2
@@ -97,13 +97,14 @@ class Sensorposition2Geostreams(Extractor):
 				fileIdList.append(f['id'])
 
 		# SENSOR is the plot
-		plot_name = plotid_by_latlon.plotQuery(self.plots_shp,
-											   sensor_latlon[0], sensor_latlon[1])
-		sensor_id = get_sensor_id(host, secret_key, plot_name['plot'])
+		plot_info = plotid_by_latlon.plotQuery(self.plots_shp,
+											   sensor_latlon[1], sensor_latlon[0])
+		logging.info("...found plot: "+str(plot_info))
+		sensor_id = get_sensor_id(host, secret_key, plot_info['plot'])
 		if not sensor_id:
-			sensor_id = create_sensor(host, secret_key, plot_name['plot'], {
+			sensor_id = create_sensor(host, secret_key, plot_info['plot'], {
 				"type": "Point",
-				"coordinates": [plot_name['point'][1], plot_name['point'][0], plot_name['point'][2]]
+				"coordinates": [plot_info['point'][1], plot_info['point'][0], plot_info['point'][2]]
 			})
 
 		# STREAM is plot x instrument
@@ -114,7 +115,7 @@ class Sensorposition2Geostreams(Extractor):
 			sensor_name = ds_info['name']
 		if sensor_name.find(' - ') > -1:
 			sensor_name = sensor_name.split(' - ')[0]
-		sensor_name = sensor_name + " - " + plot_name
+		sensor_name = sensor_name + " - " + plot_info['plot']
 
 		stream_id = get_stream_id(host, secret_key, sensor_name)
 		if not stream_id:
