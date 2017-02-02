@@ -18,12 +18,18 @@ class Sensorposition2Geostreams(Extractor):
 	def __init__(self):
 		Extractor.__init__(self)
 
+		self.parser.add_argument('--plots', dest="plots_shp", type=str, nargs='?',
+								 default="/home/extractor/extractors-metadata/sensorposition/shp/sorghumexpfall2016v5/sorghumexpfall2016v5_lblentry_1to7.shp",
+								 help=".shp file containing plots")
+
 		# parse command line and load default logging configuration
 		self.setup()
 
 		# setup logging for the exctractor
 		logging.getLogger('pyclowder').setLevel(logging.DEBUG)
 		logging.getLogger('__main__').setLevel(logging.DEBUG)
+
+		self.plots_shp = self.args.plots_shp
 
 	# Check whether dataset has geospatial metadata
 	def check_message(self, connector, host, secret_key, resource, parameters):
@@ -91,7 +97,7 @@ class Sensorposition2Geostreams(Extractor):
 				fileIdList.append(f['id'])
 
 		# SENSOR is the plot
-		plot_name = plotid_by_latlon.plotQuery('shp/sorghumexpfall2016v5_lblentry_1to7.shp',
+		plot_name = plotid_by_latlon.plotQuery(self.plots_shp,
 											   sensor_latlon[0], sensor_latlon[1])
 		sensor_id = get_sensor_id(host, secret_key, plot_name['plot'])
 		if not sensor_id:
