@@ -57,7 +57,7 @@ def plotQuery(shpFile = None, lon = 0, lat = 0):
         if (geom.Contains(point) or geom.Touches(point)): # GDAL needs to support Covers() for better efficiency
             #print "plotQuery(): INFO point in plot"
             ds = None
-            geom.transform(transform_back)
+            geom.Transform(transform_back)
             centroid = geom.Centroid()
             return {"plot":plotid, "geom":geom, "point": [centroid.GetY(), centroid.GetX(), 0]}
         # calc distance and update nearest
@@ -72,7 +72,7 @@ def plotQuery(shpFile = None, lon = 0, lat = 0):
         print "plotQuery(): ERROR searched but couldn't find nearest plot. Check data file or the point. "
         return None
     #print "plotQuery(): INFO point not in plot"
-    geom.transform(transform_back)
+    geom.Transform(transform_back)
     centroid = geom.Centroid()
     return {"plot":minid, "geom":mingeom, "point": [centroid.GetY(), centroid.GetX(), 0]}
 

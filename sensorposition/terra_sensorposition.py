@@ -98,27 +98,28 @@ class Sensorposition2Geostreams(Extractor):
 
 		# SENSOR is the plot
 		plot_info = plotid_by_latlon.plotQuery(self.plots_shp, sensor_latlon[1], sensor_latlon[0])
+		plot_name = "Range "+plot_info.replace("-", " Pass ")
 		logging.info("...found plot: "+str(plot_info))
-		sensor_id = get_sensor_id(host, secret_key, plot_info['plot'])
+		sensor_id = get_sensor_id(host, secret_key, plot_name)
 		if not sensor_id:
-			sensor_id = create_sensor(host, secret_key, plot_info['plot'], {
+			sensor_id = create_sensor(host, secret_key, plot_name, {
 				"type": "Point",
 				"coordinates": [plot_info['point'][1], plot_info['point'][0], plot_info['point'][2]]
 			})
 
 		# STREAM is plot x instrument
 		if 'dataset_info' in resource:
-			sensor_name = resource['dataset_info']['name']
+			stream_name = resource['dataset_info']['name']
 		elif 'type' in resource and resource['type'] == 'dataset':
 			ds_info = pyclowder.datasets.get_info(connector, host, secret_key, resource['id'])
-			sensor_name = ds_info['name']
-		if sensor_name.find(' - ') > -1:
-			sensor_name = sensor_name.split(' - ')[0]
-		sensor_name = sensor_name + " - " + plot_info['plot']
+			stream_name = ds_info['name']
+		if stream_name.find(' - ') > -1:
+			stream_name = stream_name.split(' - ')[0]
+		stream_name = stream_name + " - " + plot_name
 
-		stream_id = get_stream_id(host, secret_key, sensor_name)
+		stream_id = get_stream_id(host, secret_key, stream_name)
 		if not stream_id:
-			stream_id = create_stream(host, secret_key, sensor_id, sensor_name, {
+			stream_id = create_stream(host, secret_key, sensor_id, stream_name, {
 				"type": "Point",
 				"coordinates": [sensor_latlon[1], sensor_latlon[0], 0]
 			})
@@ -311,7 +312,7 @@ def create_stream(host, key, sensor_id, name, geom):
 
 	body = {
 		"name": name,
-		"type": "point",
+		"type": "Feature",
 		"geometry": geom,
 		"properties": {},
 		"sensor_id": sensor_id
