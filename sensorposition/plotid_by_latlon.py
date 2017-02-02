@@ -57,9 +57,11 @@ def plotQuery(shpFile = None, lon = 0, lat = 0):
             #print "plotQuery(): INFO point in plot"
             ds = None
             centroid = geom.Centroid()
+            cpoint = ogr.Geometry(ogr.wkbPoint)
+            cpoint.SetPoint_2D(0, centroid.GetX(), centroid.GetY())
             transform_back = osr.CoordinateTransformation(t_srs, s_srs)
-            centroid.transform(transform_back)
-            return {"plot":plotid, "geom":geom, "point": [centroid.GetY(), centroid.GetX(), 0]}
+            cpoint.transform(transform_back)
+            return {"plot":plotid, "geom":geom, "point": [cpoint.GetY(), cpoint.GetX(), 0]}
         # calc distance and update nearest
         d = geom.Distance(point)
         if (d < min):
@@ -73,9 +75,11 @@ def plotQuery(shpFile = None, lon = 0, lat = 0):
         return None
     #print "plotQuery(): INFO point not in plot"
     centroid = mingeom.Centroid()
+    cpoint = ogr.Geometry(ogr.wkbPoint)
+    cpoint.SetPoint_2D(0, centroid.GetX(), centroid.GetY())
     transform_back = osr.CoordinateTransformation(t_srs, s_srs)
-    centroid.transform(transform_back)
-    return {"plot":minid, "geom":mingeom, "point": [centroid.GetY(), centroid.GetX(), 0]}
+    cpoint.transform(transform_back)
+    return {"plot":minid, "geom":mingeom, "point": [cpoint.GetY(), cpoint.GetX(), 0]}
 
 # Example run:
 # python plotid_by_latlon.py data/sorghumexpfall2016v5_lblentry_1to7.shp -111.97495668222 33.0760167027358
