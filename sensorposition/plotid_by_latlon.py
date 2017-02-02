@@ -4,7 +4,7 @@
 # Usage: python plotid_by_latlon.py shpfile lon lat
 # Output: id of the plot which contains, touches, or is closest to the point. None if something wrong
 # Dependency: GDAL 2.0+ with GEOS, PROJ4, and python library support
-import sys, os, string
+import sys, os, string, copy
 from osgeo import gdal
 from osgeo import ogr
 from osgeo import osr
@@ -57,13 +57,15 @@ def plotQuery(shpFile = None, lon = 0, lat = 0):
             #print "plotQuery(): INFO point in plot"
             ds = None
             centroid = geom.Centroid()
+            transform_back = osr.CoordinateTransformation(t_srs, s_srs)
+            centroid.transform(transform_back)
             return {"plot":plotid, "geom":geom, "point": [centroid.GetY(), centroid.GetX(), 0]}
         # calc distance and update nearest
         d = geom.Distance(point)
         if (d < min):
             min = d
             minid = plotid
-            mingeom = geom
+            mingeom = copy.copy(geom)
 
     ds = None
     if minid is None:
@@ -71,6 +73,8 @@ def plotQuery(shpFile = None, lon = 0, lat = 0):
         return None
     #print "plotQuery(): INFO point not in plot"
     centroid = mingeom.Centroid()
+    transform_back = osr.CoordinateTransformation(t_srs, s_srs)
+    centroid.transform(transform_back)
     return {"plot":minid, "geom":mingeom, "point": [centroid.GetY(), centroid.GetX(), 0]}
 
 # Example run:
