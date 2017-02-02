@@ -273,7 +273,16 @@ def create_sensor(host, key, name, geom):
 		"name": name,
 		"type": "point",
 		"geometry": geom,
-		"properties": {}
+		"properties": {
+			"popupContent": name,
+			"type": {
+				"id": "LemnaTec",
+				"title": "LemnaTec Field Scanalyzer",
+				"sensorType": 4
+			},
+			"name": name,
+			"region": "Maricopa"
+		}
 	}
 
 	url = "%sapi/geostreams/sensors?key=%s" % (host, key)
