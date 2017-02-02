@@ -37,6 +37,7 @@ def plotQuery(shpFile = None, lon = 0, lat = 0):
     s_srs = osr.SpatialReference()
     s_srs.ImportFromEPSG(4326)
     transform = osr.CoordinateTransformation(s_srs, t_srs)
+    transform_back = osr.CoordinateTransformation(t_srs, s_srs)
     point.Transform(transform)
 
     fi_rangepass = lyr_defn.GetFieldIndex('RangePass')
@@ -56,12 +57,9 @@ def plotQuery(shpFile = None, lon = 0, lat = 0):
         if (geom.Contains(point) or geom.Touches(point)): # GDAL needs to support Covers() for better efficiency
             #print "plotQuery(): INFO point in plot"
             ds = None
+            geom.transform(transform_back)
             centroid = geom.Centroid()
-            cpoint = ogr.Geometry(ogr.wkbPoint)
-            cpoint.SetPoint_2D(0, centroid.GetX(), centroid.GetY())
-            transform_back = osr.CoordinateTransformation(t_srs, s_srs)
-            cpoint.transform(transform_back)
-            return {"plot":plotid, "geom":geom, "point": [cpoint.GetY(), cpoint.GetX(), 0]}
+            return {"plot":plotid, "geom":geom, "point": [centroid.GetY(), centroid.GetX(), 0]}
         # calc distance and update nearest
         d = geom.Distance(point)
         if (d < min):
@@ -74,12 +72,9 @@ def plotQuery(shpFile = None, lon = 0, lat = 0):
         print "plotQuery(): ERROR searched but couldn't find nearest plot. Check data file or the point. "
         return None
     #print "plotQuery(): INFO point not in plot"
-    centroid = mingeom.Centroid()
-    cpoint = ogr.Geometry(ogr.wkbPoint)
-    cpoint.SetPoint_2D(0, centroid.GetX(), centroid.GetY())
-    transform_back = osr.CoordinateTransformation(t_srs, s_srs)
-    cpoint.transform(transform_back)
-    return {"plot":minid, "geom":mingeom, "point": [cpoint.GetY(), cpoint.GetX(), 0]}
+    geom.transform(transform_back)
+    centroid = geom.Centroid()
+    return {"plot":minid, "geom":mingeom, "point": [centroid.GetY(), centroid.GetX(), 0]}
 
 # Example run:
 # python plotid_by_latlon.py data/sorghumexpfall2016v5_lblentry_1to7.shp -111.97495668222 33.0760167027358
