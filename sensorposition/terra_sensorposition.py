@@ -315,7 +315,7 @@ def create_stream(host, key, sensor_id, name, geom):
 		"type": "Feature",
 		"geometry": geom,
 		"properties": {},
-		"sensor_id": sensor_id
+		"sensor_id": str(sensor_id)
 	}
 
 	url = "%sapi/geostreams/streams?key=%s" % (host, key)
