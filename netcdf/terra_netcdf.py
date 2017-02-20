@@ -85,14 +85,14 @@ class NetCDFMetadataConversion(Extractor):
 					jdata = {
 						# TODO: Generate JSON-LD context for additional fields
 						"@context": ["https://clowder.ncsa.illinois.edu/contexts/metadata.jsonld"],
-						"dataset_id": resource['parent']['id'],
+						"file_id": resource['id'],
 						"content": json.load(metajson),
 						"agent": {
 							"@type": "cat:extractor",
 							"extractor_id": host + "/api/extractors/" + self.extractor_info['name']
 						}
 					}
-					pyclowder.datasets.upload_metadata(connector, host, secret_key, resource['parent']['id'], jdata)
+					pyclowder.files.upload_metadata(connector, host, secret_key, resource['id'], jdata)
 
 	def getOutputFilename(self, ds_name):
 		# Determine output file path
