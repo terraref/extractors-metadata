@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import logging
-import tempfile
+import json
 import os, shutil
 import subprocess
 
@@ -81,6 +81,18 @@ class NetCDFMetadataConversion(Extractor):
 				subprocess.call(['ncks', '--jsn', '-m', '-M', inPath], stdout=fmeta)
 			if os.path.exists(metaFilePath):
 				pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
+				with open(metaFilePath, 'r') as metajson:
+					jdata = {
+						# TODO: Generate JSON-LD context for additional fields
+						"@context": ["https://clowder.ncsa.illinois.edu/contexts/metadata.jsonld"],
+						"dataset_id": resource['parent']['id'],
+						"content": json.load(metajson),
+						"agent": {
+							"@type": "cat:extractor",
+							"extractor_id": host + "/api/extractors/" + self.extractor_info['name']
+						}
+					}
+					pyclowder.datasets.upload_metadata(connector, host, secret_key, resource['parent']['id'], jdata)
 
 	def getOutputFilename(self, ds_name):
 		# Determine output file path
