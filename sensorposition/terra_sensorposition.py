@@ -13,6 +13,8 @@ import pyclowder.datasets
 
 import plotid_by_latlon
 
+# @begin extractor_sensor_position
+# @in new_dataset_added
 
 class Sensorposition2Geostreams(Extractor):
 	def __init__(self):
@@ -47,6 +49,11 @@ class Sensorposition2Geostreams(Extractor):
 		# Pull positional information from metadata
 		gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime = fetch_md_parts(resource['metadata'])
 
+		# @begin extract_positional_info_from_metadata
+        # @in new_dataset_added
+        # @out gantry_geometry
+        # @end extract_positional_info
+
 		# Convert positional information into FOV polygon -----------------------------------------------------
 		# GANTRY GEOM (LAT-LONG) ##############
 		# NW: 33d 04.592m N , -111d 58.505m W #
@@ -71,6 +78,11 @@ class Sensorposition2Geostreams(Extractor):
 		SE_offset_x = 3.8
 		SE_offset_y = 0
 
+		# @begin convert_gantry_to_lat/lon
+        # @in gantry_geometry
+        # @out sensor_position_in_lat/lon
+        # @end convert_gantry_to_lat/lon
+			
 		# Determine sensor position relative to origin and get lat/lon
 		gantry_utm_x = SE_utm[0] - (gantry_y - SE_offset_y)
 		gantry_utm_y = SE_utm[1] + (gantry_x - SE_offset_x)
@@ -95,6 +107,16 @@ class Sensorposition2Geostreams(Extractor):
 			filelist = pyclowder.datasets.get_file_list(self, host, secret_key, resource['id'])
 			for f in filelist:
 				fileIdList.append(f['id'])
+
+		# @begin determine_plot_from_lat/lon
+		# @in sensor_position_in_lat/lon
+		# @out sensor_id
+		# @end determine_plot_from_lat/lon
+
+        # @begin upload_to_geostreams_API
+        # @in sensor_position_in_lat/lon
+        # @in sensor_id
+        # @end upload_to_geostreams_API
 
 		# SENSOR is the plot
 		plot_info = plotid_by_latlon.plotQuery(self.plots_shp, sensor_latlon[1], sensor_latlon[0])
@@ -246,6 +268,8 @@ def fetch_md_parts(metadata):
 				ctime = "unknown"
 
 	return gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime
+
+# @end extractor_sensor_position
 
 # Get sensor ID from Clowder based on plot name
 def get_sensor_id(host, key, name):
