@@ -99,7 +99,8 @@ class Sensorposition2Geostreams(Extractor):
 
 		# SENSOR is the plot
 		sensor_data = pyclowder.geostreams.get_sensors_by_circle(connector, host, secret_key,
-																sensor_latlon[1], sensor_latlon[0], 0.01)
+																 sensor_latlon[1], sensor_latlon[0], 0.01)
+
 		if not sensor_data:
 			plot_info = plotid_by_latlon.plotQuery(self.plots_shp, sensor_latlon[1], sensor_latlon[0])
 			plot_name = "Range "+plot_info['plot'].replace("-", " Pass ")
