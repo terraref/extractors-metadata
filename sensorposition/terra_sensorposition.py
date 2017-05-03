@@ -2,10 +2,11 @@
 
 import logging
 import utm
-import os
 import time
-import json
-import requests
+
+import datetime
+from dateutil.parser import parse
+from influxdb import InfluxDBClient, SeriesHelper
 
 from pyclowder.extractors import Extractor
 from pyclowder.utils import CheckMessage
@@ -22,6 +23,16 @@ class Sensorposition2Geostreams(Extractor):
 		self.parser.add_argument('--plots', dest="plots_shp", type=str, nargs='?',
 								 default="/home/extractor/extractors-metadata/sensorposition/shp/sorghumexpfall2016v5/sorghumexpfall2016v5_lblentry_1to7.shp",
 								 help=".shp file containing plots")
+		self.parser.add_argument('--influxHost', dest="influx_host", type=str, nargs='?',
+								 default="terra-logging.ncsa.illinois.edu", help="InfluxDB URL for logging")
+		self.parser.add_argument('--influxPort', dest="influx_port", type=int, nargs='?',
+								 default=8086, help="InfluxDB port")
+		self.parser.add_argument('--influxUser', dest="influx_user", type=str, nargs='?',
+								 default="terra", help="InfluxDB username")
+		self.parser.add_argument('--influxPass', dest="influx_pass", type=str, nargs='?',
+								 default="", help="InfluxDB password")
+		self.parser.add_argument('--influxDB', dest="influx_db", type=str, nargs='?',
+								 default="extractor_db", help="InfluxDB databast")
 
 		# parse command line and load default logging configuration
 		self.setup()
@@ -31,6 +42,11 @@ class Sensorposition2Geostreams(Extractor):
 		logging.getLogger('__main__').setLevel(logging.DEBUG)
 
 		self.plots_shp = self.args.plots_shp
+		self.influx_host = self.args.influx_host
+		self.influx_port = self.args.influx_port
+		self.influx_user = self.args.influx_user
+		self.influx_pass = self.args.influx_pass
+		self.influx_db = self.args.influx_db
 
 	# Check whether dataset has geospatial metadata
 	def check_message(self, connector, host, secret_key, resource, parameters):
@@ -45,6 +61,10 @@ class Sensorposition2Geostreams(Extractor):
 
 	# Process the file and upload the results
 	def process_message(self, connector, host, secret_key, resource, parameters):
+		starttime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+		created = 0
+		bytes = 0
+
 		# Pull positional information from metadata
 		gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime = fetch_md_parts(resource['metadata'])
 
@@ -162,6 +182,44 @@ class Sensorposition2Geostreams(Extractor):
 			"type": "Point",
 			"coordinates": [sensor_latlon[1], sensor_latlon[0], 0]
 		}, time_fmt, time_fmt, metadata)
+
+		# Attach geometry to Clowder metadata as well
+		clowder_md = {
+			# TODO: Generate JSON-LD context for additional fields
+			"@context": ["https://clowder.ncsa.illinois.edu/contexts/metadata.jsonld"],
+			"dataset_id": resource['id'],
+			"content": metadata,
+			"agent": {
+				"@type": "cat:extractor",
+				"extractor_id": host + "/api/extractors/" + self.extractor_info['name']
+			}
+		}
+		pyclowder.datasets.upload_metadata(connector, host, secret_key, resource['id'], clowder_md)
+
+		endtime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+		self.logToInfluxDB(starttime, endtime, created, bytes)
+
+	def logToInfluxDB(self, starttime, endtime, filecount, bytecount):
+		# Time of the format "2017-02-10T16:09:57+00:00"
+		f_completed_ts = int(parse(endtime).strftime('%s'))
+		f_duration = f_completed_ts - int(parse(starttime).strftime('%s'))
+
+		client = InfluxDBClient(self.influx_host, self.influx_port, self.influx_user, self.influx_pass, self.influx_db)
+		client.write_points([{
+			"measurement": "file_processed",
+			"time": f_completed_ts,
+			"fields": {"value": f_duration}
+		}], tags={"extractor": self.extractor_info['name'], "type": "duration"})
+		client.write_points([{
+			"measurement": "file_processed",
+			"time": f_completed_ts,
+			"fields": {"value": int(filecount)}
+		}], tags={"extractor": self.extractor_info['name'], "type": "filecount"})
+		client.write_points([{
+			"measurement": "file_processed",
+			"time": f_completed_ts,
+			"fields": {"value": int(bytecount)}
+		}], tags={"extractor": self.extractor_info['name'], "type": "bytes"})
 
 # Try several variations on each position field to get all required information
 def fetch_md_parts(metadata):
