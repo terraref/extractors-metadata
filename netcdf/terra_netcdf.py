@@ -4,10 +4,15 @@ import json
 import os, shutil
 import subprocess
 
+import datetime
+from dateutil.parser import parse
+from influxdb import InfluxDBClient, SeriesHelper
+
 from pyclowder.extractors import Extractor
 from pyclowder.utils import CheckMessage
 import pyclowder.files
 import pyclowder.datasets
+
 
 class NetCDFMetadataConversion(Extractor):
 	def __init__(self):
@@ -19,6 +24,18 @@ class NetCDFMetadataConversion(Extractor):
 		self.parser.add_argument('--output', '-o', dest="output_dir", type=str, nargs='?',
 								 default="/home/extractor/sites/ua-mac/Level_1/netcdf",
 								 help="root directory where timestamp & output directories will be created")
+		self.parser.add_argument('--overwrite', dest="force_overwrite", type=bool, nargs='?', default=False,
+								 help="whether to overwrite output file if it already exists in output directory")
+		self.parser.add_argument('--influxHost', dest="influx_host", type=str, nargs='?',
+								 default="terra-logging.ncsa.illinois.edu", help="InfluxDB URL for logging")
+		self.parser.add_argument('--influxPort', dest="influx_port", type=int, nargs='?',
+								 default=8086, help="InfluxDB port")
+		self.parser.add_argument('--influxUser', dest="influx_user", type=str, nargs='?',
+								 default="terra", help="InfluxDB username")
+		self.parser.add_argument('--influxPass', dest="influx_pass", type=str, nargs='?',
+								 default="", help="InfluxDB password")
+		self.parser.add_argument('--influxDB', dest="influx_db", type=str, nargs='?',
+								 default="extractor_db", help="InfluxDB databast")
 
 		# parse command line and load default logging configuration
 		self.setup()
@@ -29,6 +46,12 @@ class NetCDFMetadataConversion(Extractor):
 
 		# assign other arguments
 		self.output_dir = self.args.output_dir
+		self.force_overwrite = self.args.force_overwrite
+		self.influx_host = self.args.influx_host
+		self.influx_port = self.args.influx_port
+		self.influx_user = self.args.influx_user
+		self.influx_pass = self.args.influx_pass
+		self.influx_db = self.args.influx_db
 
 	# Check whether dataset already has output files
 	def check_message(self, connector, host, secret_key, resource, parameters):
@@ -48,9 +71,12 @@ class NetCDFMetadataConversion(Extractor):
 
 	# Process the file and upload the results
 	def process_message(self, connector, host, secret_key, resource, parameters):
-		ds_md = pyclowder.datasets.get_info(connector, host, secret_key, resource['parent']['id'])
+		starttime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+		created = 0
+		bytes = 0
 
 		# Determine output file path
+		ds_md = pyclowder.datasets.get_info(connector, host, secret_key, resource['parent']['id'])
 		outPath = self.getOutputFilename(ds_md['name'])
 		if not os.path.isdir(outPath):
 			os.makedirs(outPath)
@@ -59,40 +85,48 @@ class NetCDFMetadataConversion(Extractor):
 		fileRoot = resource['name'].replace(".nc", "")
 
 		metaFilePath = os.path.join(outPath, fileRoot+'.cdl')
-		if not os.path.isfile(metaFilePath):
+		if not os.path.isfile(metaFilePath) or self.force_overwrite:
 			logging.info('...extracting metadata in cdl format: %s' % metaFilePath)
 			with open(metaFilePath, 'w') as fmeta:
 				subprocess.call(['ncks', '--cdl', '-m', '-M', inPath], stdout=fmeta)
-			if os.path.exists(metaFilePath):
-				pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
+			created += 1
+			bytes += os.path.getsize(metaFilePath)
+			pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
 
 		metaFilePath = os.path.join(outPath, fileRoot+'.xml')
-		if not os.path.isfile(metaFilePath):
+		if not os.path.isfile(metaFilePath) or self.force_overwrite:
 			logging.info('...extracting metadata in xml format: %s' % metaFilePath)
 			with open(metaFilePath, 'w') as fmeta:
 				subprocess.call(['ncks', '--xml', '-m', '-M', inPath], stdout=fmeta)
-			if os.path.exists(metaFilePath):
-				pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
+			created += 1
+			bytes += os.path.getsize(metaFilePath)
+			pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
 
 		metaFilePath = os.path.join(outPath, fileRoot+'.json')
-		if not os.path.isfile(metaFilePath):
+		if not os.path.isfile(metaFilePath) or self.force_overwrite:
 			logging.info('...extracting metadata in json format: %s' % metaFilePath)
 			with open(metaFilePath, 'w') as fmeta:
 				subprocess.call(['ncks', '--jsn', '-m', '-M', inPath], stdout=fmeta)
-			if os.path.exists(metaFilePath):
-				pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
-				with open(metaFilePath, 'r') as metajson:
-					jdata = {
-						# TODO: Generate JSON-LD context for additional fields
-						"@context": ["https://clowder.ncsa.illinois.edu/contexts/metadata.jsonld"],
-						"file_id": resource['id'],
-						"content": json.load(metajson),
-						"agent": {
-							"@type": "cat:extractor",
-							"extractor_id": host + "/api/extractors/" + self.extractor_info['name']
-						}
+			created += 1
+			bytes += os.path.getsize(metaFilePath)
+			pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
+
+			# Add json metadata to original netCDF file
+			with open(metaFilePath, 'r') as metajson:
+				jdata = {
+					# TODO: Generate JSON-LD context for additional fields
+					"@context": ["https://clowder.ncsa.illinois.edu/contexts/metadata.jsonld"],
+					"file_id": resource['id'],
+					"content": json.load(metajson),
+					"agent": {
+						"@type": "cat:extractor",
+						"extractor_id": host + "/api/extractors/" + self.extractor_info['name']
 					}
-					pyclowder.files.upload_metadata(connector, host, secret_key, resource['id'], jdata)
+				}
+				pyclowder.files.upload_metadata(connector, host, secret_key, resource['id'], jdata)
+
+		endtime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+		self.logToInfluxDB(starttime, endtime, created, bytes)
 
 	def getOutputFilename(self, ds_name):
 		# Determine output file path
