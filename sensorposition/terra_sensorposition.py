@@ -12,6 +12,7 @@ from pyclowder.extractors import Extractor
 from pyclowder.utils import CheckMessage
 import pyclowder.datasets
 import pyclowder.geostreams
+import terrautils.extractors
 
 import plotid_by_latlon
 
@@ -50,13 +51,14 @@ class Sensorposition2Geostreams(Extractor):
 
 	# Check whether dataset has geospatial metadata
 	def check_message(self, connector, host, secret_key, resource, parameters):
-		if 'metadata' in resource:
-			gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime = fetch_md_parts(resource['metadata'])
-			if gantry_x and gantry_y and loc_cambox_x and loc_cambox_y and fov_x and fov_y:
+		# Individual files do not have relevant metadata, only datasets
+		if resource['type'] == 'dataset':
+			gantry_x, gantry_y, gantry_z, cambox_x, cambox_y, cambox_z, fov_x, fov_y = terrautils.extractors.geom_from_metadata(resource['metadata'])
+			if (gantry_x and gantry_y and gantry_z and cambox_x and cambox_y and cambox_z and fov_x and fov_y):
 				return CheckMessage.bypass
+			else:
+				logging.info("all geolocation metadata not found; skipping %s %s" % (resource['type'], resource['id']))
 
-		# If we didn't find required metadata info, don't process this dataset
-		logging.info("...did not find required geopositional metadata; skipping %s" % resource['id'])
 		return CheckMessage.ignore
 
 	# Process the file and upload the results
@@ -65,50 +67,11 @@ class Sensorposition2Geostreams(Extractor):
 		created = 0
 		bytes = 0
 
-		# Pull positional information from metadata
-		gantry_x, gantry_y, loc_cambox_x, loc_cambox_y, fov_x, fov_y, ctime = fetch_md_parts(resource['metadata'])
-
-		# Convert positional information into FOV polygon -----------------------------------------------------
-		# GANTRY GEOM (LAT-LONG) ##############
-		# NW: 33d 04.592m N , -111d 58.505m W #
-		# NE: 33d 04.591m N , -111d 58.487m W #
-		# SW: 33d 04.474m N , -111d 58.505m W #
-		# SE: 33d 04.470m N , -111d 58.485m W #
-		#######################################
-		SE_latlon = (33.0745, -111.97475)
-		SE_utm = utm.from_latlon(SE_latlon[0], SE_latlon[1])
-
-		# GANTRY GEOM (GANTRY CRS) ############
-		#			      N(x)                #
-		#			      ^                   #
-		#			      |                   #
-		#			      |                   #
-		#			      |                   #
-		#      W(y)<------SE                  #
-		#                                     #
-		# NW: (207.3,	22.135,	5.5)          #
-		# SE: (3.8,	0.0,	0.0)              #
-		#######################################
-		SE_offset_x = 3.8
-		SE_offset_y = 0
-
-		# Determine sensor position relative to origin and get lat/lon
-		gantry_utm_x = SE_utm[0] - (gantry_y - SE_offset_y)
-		gantry_utm_y = SE_utm[1] + (gantry_x - SE_offset_x)
-		sensor_utm_x = gantry_utm_x - loc_cambox_y
-		sensor_utm_y = gantry_utm_y + loc_cambox_x
-		sensor_latlon = utm.to_latlon(sensor_utm_x, sensor_utm_y, SE_utm[2], SE_utm[3])
-		logging.info("sensor lat/lon: %s" % str(sensor_latlon))
-
-		# Determine field of view (assumes F.O.V. X&Y are based on center of sensor)
-		fov_NW_utm_x = sensor_utm_x - fov_y/2
-		fov_NW_utm_y = sensor_utm_y + fov_x/2
-		fov_SE_utm_x = sensor_utm_x + fov_y/2
-		fov_SE_utm_y = sensor_utm_y - fov_x/2
-		fov_nw_latlon = utm.to_latlon(fov_NW_utm_x, fov_NW_utm_y, SE_utm[2],SE_utm[3])
-		fov_se_latlon = utm.to_latlon(fov_SE_utm_x, fov_SE_utm_y, SE_utm[2], SE_utm[3])
-		logging.debug("F.O.V. NW lat/lon: %s" % str(fov_nw_latlon))
-		logging.debug("F.O.V. SE lat/lon: %s" % str(fov_se_latlon))
+		# geoms = (bbox_se_lon, bbox_nw_lon, bbox_nw_lat, bbox_se_lat)
+		ds_info = pyclowder.datasets.get_info(connector, host, secret_key, resource['parent']['id'])
+		geoms = terrautils.extractors.calculate_gps_bounds(resource['metadata'], ds_info['name'])
+		bbox = terrautils.extractors.calculate_bounding_box(geoms)
+		centroid = [geoms[1] + ((geoms[0]-geoms[1])/2), geoms[3] + ((geoms[2]-geoms[3])/2)]
 
 		# Upload data into Geostreams API -----------------------------------------------------
 		fileIdList = []
@@ -118,10 +81,11 @@ class Sensorposition2Geostreams(Extractor):
 				fileIdList.append(f['id'])
 
 		# SENSOR is the plot
-		sensor_data = pyclowder.geostreams.get_sensors_by_circle(connector, host, secret_key, sensor_latlon[1], sensor_latlon[0], 0.01)
+		# TODO: Replace with query to BETYdb
+		sensor_data = pyclowder.geostreams.get_sensors_by_circle(connector, host, secret_key, centroid[1], centroid[0], 0.01)
 
 		if not sensor_data:
-			plot_info = plotid_by_latlon.plotQuery(self.plots_shp, sensor_latlon[1], sensor_latlon[0])
+			plot_info = plotid_by_latlon.plotQuery(self.plots_shp, centroid[1], centroid[0])
 			plot_name = "Range "+plot_info['plot'].replace("-", " Pass ")
 			logging.info("...creating plot: "+str(plot_info))
 			sensor_id = pyclowder.geostreams.create_sensor(connector, host, secret_key, plot_name,{
@@ -150,7 +114,7 @@ class Sensorposition2Geostreams(Extractor):
 		if not stream_data:
 			stream_id = pyclowder.geostreams.create_stream(connector, host, secret_key, stream_name, sensor_id, {
 				"type": "Point",
-				"coordinates": [sensor_latlon[1], sensor_latlon[0], 0]
+				"coordinates": [centroid[1], centroid[0], 0]
 			})
 		else: stream_id = stream_data['id']
 
@@ -160,15 +124,11 @@ class Sensorposition2Geostreams(Extractor):
 			"file_ids": ",".join(fileIdList),
 			"centroid": {
 				"type": "Point",
-				"coordinates": [sensor_latlon[1], sensor_latlon[0]]
+				"coordinates": [centroid[1], centroid[0]]
 			},
 			"fov": {
 				"type": "Polygon",
-				"coordinates": [[[fov_nw_latlon[1], fov_nw_latlon[0], 0],
-								 [fov_nw_latlon[1], fov_se_latlon[0], 0],
-								 [fov_se_latlon[1], fov_se_latlon[0], 0],
-								 [fov_se_latlon[1], fov_nw_latlon[0], 0],
-								 [fov_nw_latlon[1], fov_nw_latlon[0], 0] ]]
+				"coordinates": [[bbox[0], bbox[1], bbox[2], bbox[3], bbox[0]]]
 			}
 		}
 
@@ -180,46 +140,15 @@ class Sensorposition2Geostreams(Extractor):
 
 		pyclowder.geostreams.create_datapoint(connector, host, secret_key, stream_id, {
 			"type": "Point",
-			"coordinates": [sensor_latlon[1], sensor_latlon[0], 0]
+			"coordinates": [centroid[1], centroid[0], 0]
 		}, time_fmt, time_fmt, metadata)
 
 		# Attach geometry to Clowder metadata as well
-		clowder_md = {
-			# TODO: Generate JSON-LD context for additional fields
-			"@context": ["https://clowder.ncsa.illinois.edu/contexts/metadata.jsonld"],
-			"dataset_id": resource['id'],
-			"content": metadata,
-			"agent": {
-				"@type": "cat:extractor",
-				"extractor_id": host + "/api/extractors/" + self.extractor_info['name']
-			}
-		}
+		clowder_md = terrautils.extractors.build_metadata(host, self.extractor_info['name'], resource['id'], metadata, 'dataset')
 		pyclowder.datasets.upload_metadata(connector, host, secret_key, resource['id'], clowder_md)
 
 		endtime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-		self.logToInfluxDB(starttime, endtime, created, bytes)
-
-	def logToInfluxDB(self, starttime, endtime, filecount, bytecount):
-		# Time of the format "2017-02-10T16:09:57+00:00"
-		f_completed_ts = int(parse(endtime).strftime('%s'))
-		f_duration = f_completed_ts - int(parse(starttime).strftime('%s'))
-
-		client = InfluxDBClient(self.influx_host, self.influx_port, self.influx_user, self.influx_pass, self.influx_db)
-		client.write_points([{
-			"measurement": "file_processed",
-			"time": f_completed_ts,
-			"fields": {"value": f_duration}
-		}], tags={"extractor": self.extractor_info['name'], "type": "duration"})
-		client.write_points([{
-			"measurement": "file_processed",
-			"time": f_completed_ts,
-			"fields": {"value": int(filecount)}
-		}], tags={"extractor": self.extractor_info['name'], "type": "filecount"})
-		client.write_points([{
-			"measurement": "file_processed",
-			"time": f_completed_ts,
-			"fields": {"value": int(bytecount)}
-		}], tags={"extractor": self.extractor_info['name'], "type": "bytes"})
+		terrautils.extractors.log_to_influxdb(self.extractor_info['name'], starttime, endtime, created, bytes)
 
 # Try several variations on each position field to get all required information
 def fetch_md_parts(metadata):
