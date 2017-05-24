@@ -3,12 +3,14 @@ MAINTAINER Max Burnette <mburnet2@illinois.edu>
 
 # Create user with necessary user ID for writing permissions on Roger
 RUN useradd -u 49044 extractor \
-    && mkdir -p /home/extractor/sites/ua-mac/raw_data \
-    && mkdir -p /home/extractor/sites/ua-mac/Level_1/flir2tif \
+    && mkdir -p /home/extractor/sites \
     && chown -R extractor /home/extractor
 
 # command to run when starting docker
 COPY entrypoint.sh extractor_info.json *.py /home/extractor/
+
+# TODO: Remove this once BETYdb hooks are completed
+ADD shp /home/extractor/shp
 
 USER extractor
 ENTRYPOINT ["/home/extractor/entrypoint.sh"]
@@ -21,5 +23,4 @@ CMD ["extractor"]
 ENV RABBITMQ_EXCHANGE="terra" \
     RABBITMQ_VHOST="%2F" \
     RABBITMQ_QUEUE="terra.metadata.sensorposition" \
-    MOUNTED_PATHS='{"home/clowder/sites":"/home/extractor/sites"}' \
     MAIN_SCRIPT="terra_sensorposition.py"
