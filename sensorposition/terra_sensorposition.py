@@ -12,6 +12,8 @@ import terrautils.extractors
 
 import plotid_by_latlon
 
+# @begin extractor_sensor_position
+# @in new_dataset_added
 
 class Sensorposition2Geostreams(Extractor):
 	def __init__(self):
@@ -72,11 +74,21 @@ class Sensorposition2Geostreams(Extractor):
 		created = 0
 		bytes = 0
 
+		# @begin extract_positional_info_from_metadata
+		# @in new_dataset_added
+		# @out gantry_geometry
+		# @end extract_positional_info
+
 		# geoms = (bbox_se_lon, bbox_nw_lon, bbox_nw_lat, bbox_se_lat)
 		ds_info = pyclowder.datasets.get_info(connector, host, secret_key, resource['parent']['id'])
 		geoms = terrautils.extractors.calculate_gps_bounds(resource['metadata'], ds_info['name'])
 		bbox = terrautils.extractors.calculate_bounding_box(geoms)
 		centroid = [geoms[1] + ((geoms[0]-geoms[1])/2), geoms[3] + ((geoms[2]-geoms[3])/2)]
+
+		# @begin convert_gantry_to_lat/lon
+		# @in gantry_geometry
+		# @out sensor_position_in_lat/lon
+		# @end convert_gantry_to_lat/lon
 
 		# Upload data into Geostreams API -----------------------------------------------------
 		fileIdList = []
@@ -84,6 +96,16 @@ class Sensorposition2Geostreams(Extractor):
 			filelist = pyclowder.datasets.get_file_list(self, host, secret_key, resource['id'])
 			for f in filelist:
 				fileIdList.append(f['id'])
+
+		# @begin determine_plot_from_lat/lon
+		# @in sensor_position_in_lat/lon
+		# @out sensor_id
+		# @end determine_plot_from_lat/lon
+
+		# @begin upload_to_geostreams_API
+		# @in sensor_position_in_lat/lon
+		# @in sensor_id
+		# @end upload_to_geostreams_API
 
 		# SENSOR is the plot
 		# TODO: Replace with query to BETYdb
@@ -156,6 +178,7 @@ class Sensorposition2Geostreams(Extractor):
 		terrautils.extractors.log_to_influxdb(self.extractor_info['name'], self.influx_params,
 											  starttime, endtime, created, bytes)
 
+# @end extractor_sensor_position
 
 if __name__ == "__main__":
 	extractor = Sensorposition2Geostreams()
