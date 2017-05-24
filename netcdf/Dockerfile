@@ -1,7 +1,7 @@
 # Dockerfile for the TerraRef hyperspectral image conversion extractor
-# August 17, 2016
-FROM ubuntu:14.04
-MAINTAINER Yan Y. Liu <yanliu@illinois.edu>
+FROM terraref/terrautils
+MAINTAINER Max Burnette <mburnet2@illinois.edu>
+# MAINTAINER Yan Y. Liu <yanliu@illinois.edu>
 
 # install common libraries and python modules
 USER root
