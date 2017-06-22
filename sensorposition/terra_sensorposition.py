@@ -7,7 +7,7 @@ import datetime
 from pyclowder.extractors import Extractor
 from pyclowder.utils import CheckMessage
 import pyclowder.datasets
-import pyclowder.geostreams
+import terrautils.geostreams
 import terrautils.extractors
 
 import plotid_by_latlon
@@ -109,12 +109,12 @@ class Sensorposition2Geostreams(Extractor):
 
 		# SENSOR is the plot
 		# TODO: Replace with query to BETYdb
-		sensor_data = pyclowder.geostreams.get_sensors_by_circle(connector, host, secret_key, centroid[1], centroid[0], 0.01)
+		sensor_data = terrautils.geostreams.get_sensors_by_circle(connector, host, secret_key, centroid[1], centroid[0], 0.01)
 		if not sensor_data:
 			plot_info = plotid_by_latlon.plotQuery(self.plots_shp, centroid[1], centroid[0])
 			plot_name = "Range "+plot_info['plot'].replace("-", " Pass ")
 			logging.info("...creating plot: "+str(plot_info))
-			sensor_id = pyclowder.geostreams.create_sensor(connector, host, secret_key, plot_name,{
+			sensor_id = terrautils.geostreams.create_sensor(connector, host, secret_key, plot_name,{
 				"type": "Point",
 				"coordinates": [plot_info['point'][1], plot_info['point'][0], plot_info['point'][2]]
 			}, {
@@ -136,9 +136,9 @@ class Sensorposition2Geostreams(Extractor):
 			stream_name = stream_name.split(' - ')[0]
 		stream_name = stream_name + " - " + plot_name
 
-		stream_data = pyclowder.geostreams.get_stream_by_name(connector, host, secret_key, stream_name)
+		stream_data = terrautils.geostreams.get_stream_by_name(connector, host, secret_key, stream_name)
 		if not stream_data:
-			stream_id = pyclowder.geostreams.create_stream(connector, host, secret_key, stream_name, sensor_id, {
+			stream_id = terrautils.geostreams.create_stream(connector, host, secret_key, stream_name, sensor_id, {
 				"type": "Point",
 				"coordinates": [centroid[1], centroid[0], 0]
 			})
@@ -165,7 +165,7 @@ class Sensorposition2Geostreams(Extractor):
 		if len(time_fmt) == 19:
 			time_fmt += "-06:00"
 
-		pyclowder.geostreams.create_datapoint(connector, host, secret_key, stream_id, {
+		terrautils.geostreams.create_datapoint(connector, host, secret_key, stream_id, {
 			"type": "Point",
 			"coordinates": [centroid[1], centroid[0], 0]
 		}, time_fmt, time_fmt, metadata)
