@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import datetime
 import logging
 import json
 import os
