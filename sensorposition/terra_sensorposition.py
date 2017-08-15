@@ -6,7 +6,7 @@ import time
 from pyclowder.utils import CheckMessage
 from pyclowder.datasets import get_info, get_file_list, upload_metadata
 from terrautils.extractors import TerrarefExtractor, geom_from_metadata, build_metadata, \
-	calculate_bounding_box, calculate_gps_bounds
+	calculate_bounding_box, calculate_gps_bounds, calculate_scan_time
 from terrautils.geostreams import create_datapoint_with_dependencies
 
 
@@ -71,7 +71,7 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 		# @end upload_to_geostreams_API
 
 		# Format time properly
-		scan_time = terrautils.extractors.calculate_scan_time(resource['metadata'])
+		scan_time = calculate_scan_time(resource['metadata'])
 		time_obj = time.strptime(scan_time, "%m/%d/%Y %H:%M:%S")
 		time_fmt = time.strftime('%Y-%m-%dT%H:%M:%S', time_obj)
 		if len(time_fmt) == 19:
