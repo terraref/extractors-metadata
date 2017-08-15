@@ -31,7 +31,7 @@ class NetCDFMetadataConversion(TerrarefExtractor):
 		out_fname_root = resource['name'].replace('.nc', '')
 
 		metaFilePath = os.path.join(out_dir, out_fname_root+'_metadata.cdl')
-		if not os.path.isfile(metaFilePath) or self.force_overwrite:
+		if not os.path.isfile(metaFilePath) or self.overwrite:
 			logging.info('...extracting metadata in cdl format: %s' % metaFilePath)
 			with open(metaFilePath, 'w') as fmeta:
 				subprocess.call(['ncks', '--cdl', '-m', '-M', resource['local_paths'][0]], stdout=fmeta)
@@ -40,7 +40,7 @@ class NetCDFMetadataConversion(TerrarefExtractor):
 			upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
 
 		metaFilePath = os.path.join(out_dir, out_fname_root+'._metadataxml')
-		if not os.path.isfile(metaFilePath) or self.force_overwrite:
+		if not os.path.isfile(metaFilePath) or self.overwrite:
 			logging.info('...extracting metadata in xml format: %s' % metaFilePath)
 			with open(metaFilePath, 'w') as fmeta:
 				subprocess.call(['ncks', '--xml', '-m', '-M', resource['local_paths'][0]], stdout=fmeta)
@@ -49,7 +49,7 @@ class NetCDFMetadataConversion(TerrarefExtractor):
 			upload_to_dataset(connector, host, secret_key, resource['parent']['id'], metaFilePath)
 
 		metaFilePath = os.path.join(out_dir, out_fname_root+'._metadata.json')
-		if not os.path.isfile(metaFilePath) or self.force_overwrite:
+		if not os.path.isfile(metaFilePath) or self.overwrite:
 			logging.info('...extracting metadata in json format: %s' % metaFilePath)
 			with open(metaFilePath, 'w') as fmeta:
 				subprocess.call(['ncks', '--jsn', '-m', '-M', resource['local_paths'][0]], stdout=fmeta)
