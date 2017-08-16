@@ -105,7 +105,7 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 
 		# Attach geometry to Clowder metadata as well
 		upload_metadata(connector, host, secret_key, resource['id'],
-			build_metadata(host, self.extractor_info['name'], resource['id'], metadata, 'dataset'))
+			build_metadata(host, self.extractor_info, resource['id'], metadata, 'dataset'))
 
 		self.end_message()
 

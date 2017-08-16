@@ -59,7 +59,7 @@ class NetCDFMetadataConversion(TerrarefExtractor):
 
 			# Add json metadata to original netCDF file
 			with open(metaFilePath, 'r') as metajson:
-				metadata = build_metadata(host, self.extractor_info['name'], resource['id'],
+				metadata = build_metadata(host, self.extractor_info, resource['id'],
 																json.load(metajson), 'dataset')
 				upload_metadata(connector, host, secret_key, resource['parent']['id'], metadata)
 
