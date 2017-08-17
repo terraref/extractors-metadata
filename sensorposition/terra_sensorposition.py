@@ -92,16 +92,16 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 			"centroid": {
 				"type": "Point",
 				"coordinates": [centroid[1], centroid[0]]
-			},
-			"fov": {
-				"type": "Polygon",
-				"coordinates": [[bbox[0], bbox[1], bbox[2], bbox[3], bbox[0]]]
 			}
 		}
 
 		create_datapoint_with_dependencies(connector, host, secret_key,
 										   streamprefix, [centroid[1], centroid[0]],
-										   time_fmt, time_fmt, metadata=metadata)
+										   time_fmt, time_fmt, metadata=metadata, geom={
+											   "type": "Polygon",
+											   "coordinates": [[bbox[0], bbox[1], bbox[2],
+																bbox[3], bbox[0]]]
+										   })
 
 		# Attach geometry to Clowder metadata as well
 		upload_metadata(connector, host, secret_key, resource['id'],
