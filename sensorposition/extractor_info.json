@@ -1,7 +1,7 @@
 {
     "@context": "http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
     "name": "terra.metadata.sensorposition",
-    "version": "2.0",
+    "version": "1.0",
     "description": "Geospatial Sensor Position Extractor",
     "author": "Max Burnette <mburnet2@illinois.edu>",
     "contributors": ["Yaping Cai", "Zongyang Li"],

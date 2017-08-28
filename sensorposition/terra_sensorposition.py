@@ -6,9 +6,10 @@ import time
 from pyclowder.utils import CheckMessage
 from pyclowder.datasets import get_info, get_file_list, upload_metadata
 from terrautils.extractors import TerrarefExtractor, geom_from_metadata, build_metadata, \
-	calculate_bounding_box, calculate_gps_bounds, calculate_scan_time
+	calculate_bounding_box, calculate_gps_bounds, calculate_scan_time, calculate_centroid
 from terrautils.geostreams import create_datapoint_with_dependencies
-
+from terrautils.betydb import get_sites_by_latlon
+from terrautils.metadata import get_terraref_metadata
 
 # @begin extractor_sensor_position
 # @in new_dataset_added
@@ -23,13 +24,17 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 	# Check whether dataset has geospatial metadata
 	def check_message(self, connector, host, secret_key, resource, parameters):
 		# Individual files do not have relevant metadata, only datasets
-		if resource['type'] == 'dataset':
-			(gantry_x, gantry_y, gantry_z, cambox_x, cambox_y, cambox_z,
-			 fov_x, fov_y) = geom_from_metadata(resource['metadata'])
-			if (gantry_x and gantry_y and gantry_z and cambox_x and cambox_y and cambox_z and fov_x and fov_y):
-				return CheckMessage.bypass
-			else:
-				logging.info("all geolocation metadata not found; skipping %s %s" % (resource['type'], resource['id']))
+		if resource['type'] == 'metadata' and resource['parent']['type'] == 'dataset':
+			if 'terraref_cleaned_metadata' in resource['metadata']:
+				# Get dataset fixed metadata for geometry extraction
+				ds_info = get_info(connector, host, secret_key, resource['parent']['id'])
+				sensorname = ds_info['name'].split(' - ')[0]
+				fullmd = get_terraref_metadata(resource['metadata'], sensorname)
+				(gx, gy, gz, cx, cy, cz, fx, fy) = geom_from_metadata(fullmd)
+				if (gx or gy or gz) and (cx or cy or cz) and (fx or fy):
+					return CheckMessage.bypass
+				else:
+					logging.info("all geolocation metadata not found; skipping %s %s" % (resource['type'], resource['id']))
 
 		return CheckMessage.ignore
 
@@ -42,11 +47,15 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 		# @out gantry_geometry
 		# @end extract_positional_info
 
-		# geoms = (bbox_se_lon, bbox_nw_lon, bbox_nw_lat, bbox_se_lat)
 		ds_info = get_info(connector, host, secret_key, resource['parent']['id'])
 		geoms = calculate_gps_bounds(resource['metadata'], ds_info['name'])
 		bbox = calculate_bounding_box(geoms)
-		centroid = [geoms[1] + ((geoms[0]-geoms[1])/2), geoms[3] + ((geoms[2]-geoms[3])/2)]
+		bbox_geom = {
+			"type": "Polygon",
+			"coordinates": [[bbox[0], bbox[1], bbox[2],
+							 bbox[3], bbox[0]]]
+		}
+		centroid_latlon = calculate_centroid(geoms)
 
 		# @begin convert_gantry_to_lat/lon
 		# @in gantry_geometry
@@ -70,38 +79,30 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 		# @in sensor_id
 		# @end upload_to_geostreams_API
 
-		# Format time properly
 		scan_time = calculate_scan_time(resource['metadata'])
-		time_obj = time.strptime(scan_time, "%m/%d/%Y %H:%M:%S")
-		time_fmt = time.strftime('%Y-%m-%dT%H:%M:%S', time_obj)
-		if len(time_fmt) == 19:
-			time_fmt += "-06:00"
 
 		# Get sensor from datasetname
-		if 'dataset_info' in resource:
-			streamprefix = resource['dataset_info']['name']
-		elif 'type' in resource and resource['type'] == 'dataset':
-			ds_info = get_info(connector, host, secret_key, resource['id'])
-			streamprefix = ds_info['name']
-		if streamprefix.find(' - ') > -1:
-			streamprefix = streamprefix.split(' - ')[0]
+		(streamprefix, date) = ds_info['name'].split(' - ')
+		date = date.split("__")[0]
+
+		# Get plot names from BETYdb
+		plots = []
+		for site in get_sites_by_latlon(centroid_latlon, date):
+			plots.append(site['sitename'])
 
 		metadata = {
 			"sources": host+resource['type']+"s/"+resource['id'],
 			"file_ids": ",".join(fileIdList),
 			"centroid": {
 				"type": "Point",
-				"coordinates": [centroid[1], centroid[0]]
-			}
+				"coordinates": [centroid_latlon[1], centroid_latlon[0]]
+			},
+			"plots": plots,
+			"bounding_box": bbox_geom
 		}
-
 		create_datapoint_with_dependencies(connector, host, secret_key,
-										   streamprefix, [centroid[1], centroid[0]],
-										   time_fmt, time_fmt, metadata=metadata, geom={
-											   "type": "Polygon",
-											   "coordinates": [[bbox[0], bbox[1], bbox[2],
-																bbox[3], bbox[0]]]
-										   })
+										   streamprefix, [centroid_latlon[1], centroid_latlon[0]],
+										   scan_time, scan_time, metadata=metadata, filter_date=date, geom=bbox_geom)
 
 		# Attach geometry to Clowder metadata as well
 		upload_metadata(connector, host, secret_key, resource['id'],
