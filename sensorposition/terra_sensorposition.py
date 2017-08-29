@@ -64,10 +64,10 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 
 		# Upload data into Geostreams API -----------------------------------------------------
 		fileIdList = []
-		if 'type' in resource and resource['type'] == 'dataset':
-			filelist = get_file_list(self, host, secret_key, resource['id'])
+		if 'type' in resource['parent'] and resource['parent']['type'] == 'dataset':
+			filelist = get_file_list(self, host, secret_key, resource['parent']['id'])
 			for f in filelist:
-				fileIdList.append(f['id'])
+				fileIdList.append(host+"files/"+f['id'])
 
 		# @begin determine_plot_from_lat/lon
 		# @in sensor_position_in_lat/lon
@@ -91,20 +91,16 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 			plots.append(site['sitename'])
 
 		metadata = {
-			"sources": host+resource['type']+"s/"+resource['id'],
+			"source_dataset": host+resource['parent']['type']+"s/"+resource['parent']['id'],
 			"file_ids": ",".join(fileIdList),
-			"centroid": {
-				"type": "Point",
-				"coordinates": [centroid_latlon[1], centroid_latlon[0]]
-			},
-			"plots": plots,
-			"bounding_box": bbox_geom
+			"plots": plots
 		}
 		create_datapoint_with_dependencies(connector, host, secret_key,
-										   streamprefix, [centroid_latlon[1], centroid_latlon[0]],
+										   streamprefix, centroid_latlon,
 										   scan_time, scan_time, metadata=metadata, filter_date=date, geom=bbox_geom)
 
 		# Attach geometry to Clowder metadata as well
+		metadata['plots'] = plots
 		upload_metadata(connector, host, secret_key, resource['id'],
 			build_metadata(host, self.extractor_info, resource['id'], metadata, 'dataset'))
 
