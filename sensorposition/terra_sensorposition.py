@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 
-import json
-import logging
-
 from pyclowder.utils import CheckMessage
 from pyclowder.datasets import get_info, get_file_list, upload_metadata, download_metadata
 from terrautils.extractors import TerrarefExtractor, build_metadata
