@@ -2,7 +2,7 @@
     "@context": ["http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
         {"@vocab": "https://terraref.ncsa.illinois.edu/metadata/uamac#"}],
     "name": "terra.netcdf",
-    "version": "2.0",
+    "version": "1.0",
     "description": "NetCDF Metadata Extractor",
     "author": "Yan Liu <yanliu@illinois.edu>",
     "contributors": [],
