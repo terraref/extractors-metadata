@@ -50,7 +50,7 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 		(streamprefix, timestamp) = resource['dataset_info']['name'].split(' - ')
 		date = timestamp.split("__")[0]
 		scan_time = calculate_scan_time(terra_md)
-		streamprefix += " Raw Data"
+		streamprefix += " Datasets"
 
 		centroid = None
 		for entry in terra_md['spatial_metadata']:
