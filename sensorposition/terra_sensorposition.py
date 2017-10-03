@@ -53,9 +53,12 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 		streamprefix += " Datasets"
 
 		centroid = None
+		bbox = None
 		for entry in terra_md['spatial_metadata']:
 			if 'centroid' in terra_md['spatial_metadata'][entry]:
 				centroid = terra_md['spatial_metadata'][entry]['centroid']
+			if 'bounding_box' in terra_md['spatial_metadata'][entry]:
+				bbox = terra_md['spatial_metadata'][entry]['bounding_box']
 		if centroid:
 			dpmetadata = {
 				"source_dataset": host + ("" if host.endswith("/") else "/") + \
@@ -64,7 +67,7 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 			}
 			create_datapoint_with_dependencies(connector, host, secret_key,
 											   streamprefix, centroid,
-											   scan_time, scan_time, dpmetadata, date)
+											   scan_time, scan_time, dpmetadata, date, bbox)
 
 		# Attach geometry to Clowder metadata as well
 		ext_meta = build_metadata(host, self.extractor_info, resource['dataset_info']['id'], {
