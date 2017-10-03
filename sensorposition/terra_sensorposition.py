@@ -19,8 +19,8 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 
 	# Check whether dataset has geospatial metadata
 	def check_message(self, connector, host, secret_key, resource, parameters):
-		if 'dataset_info' in resource:
-			ds_md = download_metadata(connector, host, secret_key, resource['dataset_info']['id'])
+		if 'parent' in resource:
+			ds_md = download_metadata(connector, host, secret_key, resource['parent']['id'])
 
 			terra_md = get_terraref_metadata(ds_md)
 			ext_md = get_extractor_metadata(ds_md, self.extractor_info['name'])
@@ -38,7 +38,8 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 		# @out gantry_geometry
 		# @end extract_positional_info
 
-		ds_md = download_metadata(connector, host, secret_key, resource['dataset_info']['id'])
+		ds_md = download_metadata(connector, host, secret_key, resource['parent']['id'])
+		ds_info = get_info(connector, host, secret_key, resource['parent']['id'])
 		terra_md = get_terraref_metadata(ds_md)
 
 		# @begin upload_to_geostreams_API
@@ -47,30 +48,42 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 		# @end upload_to_geostreams_API
 
 		# Get sensor from datasetname
-		(streamprefix, timestamp) = resource['dataset_info']['name'].split(' - ')
+		(streamprefix, timestamp) = ds_info['name'].split(' - ')
 		date = timestamp.split("__")[0]
 		scan_time = calculate_scan_time(terra_md)
 		streamprefix += " Datasets"
 
 		centroid = None
+		bbox = None
 		for entry in terra_md['spatial_metadata']:
 			if 'centroid' in terra_md['spatial_metadata'][entry]:
 				centroid = terra_md['spatial_metadata'][entry]['centroid']
+			if 'bounding_box' in terra_md['spatial_metadata'][entry]:
+				bbox = terra_md['spatial_metadata'][entry]['bounding_box']
+		if bbox:
+			# Clean up GeoJSON for geostreams
+			bbox = {
+				"type": bbox['type'],
+				"coordinates": [
+					bbox['coordinates']
+				]
+			}
 		if centroid:
 			dpmetadata = {
 				"source_dataset": host + ("" if host.endswith("/") else "/") + \
-								  "datasets/" + resource['dataset_info']['id'],
-				"dataset_name": resource['dataset_info']['name']
+								  "datasets/" + resource['parent']['id'],
+				"dataset_name": ds_info['name']
 			}
+
 			create_datapoint_with_dependencies(connector, host, secret_key,
 											   streamprefix, centroid,
-											   scan_time, scan_time, dpmetadata, date)
+											   scan_time, scan_time, dpmetadata, date, bbox)
 
 		# Attach geometry to Clowder metadata as well
-		ext_meta = build_metadata(host, self.extractor_info, resource['dataset_info']['id'], {
+		ext_meta = build_metadata(host, self.extractor_info, resource['parent']['id'], {
 			"datapoints_added": 1
 		}, 'dataset')
-		upload_metadata(connector, host, secret_key, resource['dataset_info']['id'], ext_meta)
+		upload_metadata(connector, host, secret_key, resource['parent']['id'], ext_meta)
 
 		self.end_message()
 
