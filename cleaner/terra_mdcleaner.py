@@ -4,7 +4,7 @@ import os
 import logging
 
 from pyclowder.utils import CheckMessage
-from pyclowder.datasets import upload_metadata
+from pyclowder.datasets import upload_metadata, submit_extraction
 from terrautils.extractors import TerrarefExtractor, delete_dataset_metadata, load_json_file
 from terrautils.metadata import clean_metadata
 
@@ -14,6 +14,8 @@ def add_local_arguments(parser):
 	parser.add_argument('--delete', type=bool, default=os.getenv('DELETE_EXISTING_METADATA', True),
 						help="whether to delete all existing metadata from datasets first")
 	parser.add_argument('--userid', default=os.getenv('CLOWDER_USER_UUID', "57adcb81c0a7465986583df1"),
+						help="user ID to use as creator of metadata")
+	parser.add_argument('--callback', default=os.getenv('CALLBACK_EXTRACTOR', ""),
 						help="user ID to use as creator of metadata")
 
 class ReCleanLemnatecMetadata(TerrarefExtractor):
@@ -28,6 +30,7 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 		# assign local arguments
 		self.delete = self.args.delete
 		self.userid = self.args.userid
+		self.callback = self.args.callback
 
 	# Check whether dataset has geospatial metadata
 	def check_message(self, connector, host, secret_key, resource, parameters):
@@ -65,6 +68,10 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 					}
 				}
 				upload_metadata(connector, host, secret_key, resource['id'], format_md)
+
+				# Now trigger a callback extraction if given
+				if len(self.callback) > 0:
+					submit_extraction(connector, host, secret_key, resource['id'], self.callback)
 			else:
 				logging.error("metadata.json not found in %s" % source_dir)
 
