@@ -1,0 +1,14 @@
+{
+    "@context": "http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
+    "name": "terra.metadata.cleaner",
+    "version": "1.0",
+    "description": "LemnaTec Metadata Cleaner",
+    "author": "Max Burnette <mburnet2@illinois.edu>",
+    "contributors": [],
+    "contexts": [],
+    "repository": {"repType": "git", "repUrl": "https://github.com/terraref/extractors-metadata.git"},
+    "process": {},
+    "external_services": [],
+    "dependencies": [],
+    "bibtex": []
+}
