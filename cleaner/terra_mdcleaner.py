@@ -45,9 +45,11 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 
 		# Search for metadata.json source file
 		source_dir = os.path.dirname(self.sensors.get_sensor_path_by_dataset(resource['name']))
+		source_dir = self.remapMountPath(connector, source_dir)
+
 		if os.path.isdir(source_dir):
 			md_file = None
-			for f in os.path.listdir(source_dir):
+			for f in os.listdir(source_dir):
 				if f.endswith("metadata.json"):
 					md_file = os.path.join(source_dir, f)
 
@@ -70,6 +72,16 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 			logging.info("%s could not be found" % source_dir)
 
 		self.end_message()
+
+	def remapMountPath(self, connector, path):
+		if len(connector.mounted_paths) > 0:
+			for source_path in connector.mounted_paths:
+				if path.startswith(source_path):
+					return path.replace(source_path, connector.mounted_paths[source_path])
+			return path
+		else:
+			return path
+
 
 if __name__ == "__main__":
 	extractor = ReCleanLemnatecMetadata()
