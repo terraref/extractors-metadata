@@ -4,7 +4,7 @@ import os
 import logging
 
 from pyclowder.utils import CheckMessage
-from pyclowder.datasets import get_info, get_file_list, upload_metadata, download_metadata
+from pyclowder.datasets import upload_metadata
 from terrautils.extractors import TerrarefExtractor, delete_dataset_metadata, load_json_file
 from terrautils.metadata import clean_metadata
 
