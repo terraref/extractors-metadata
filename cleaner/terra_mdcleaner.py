@@ -73,10 +73,10 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 				if len(self.callback) > 0:
 					submit_extraction(connector, host, secret_key, resource['id'], self.callback)
 			else:
-				logging.error("metadata.json not found in %s" % source_dir)
+				logging.getLogger(__name__).error("metadata.json not found in %s" % source_dir)
 
 		else:
-			logging.info("%s could not be found" % source_dir)
+			logging.getLogger(__name__).info("%s could not be found" % source_dir)
 
 		self.end_message()
 
