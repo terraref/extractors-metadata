@@ -44,11 +44,13 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 
 		if self.delete:
 			# Delete all existing metadata from this dataset
+			logging.getLogger(__name__).info("Deleting existing metadata from %s" % resource['id'])
 			delete_dataset_metadata(host, self.clowder_user, self.clowder_pass, resource['id'])
 
 		# Search for metadata.json source file
 		source_dir = os.path.dirname(self.sensors.get_sensor_path_by_dataset(resource['name']))
 		source_dir = self.remapMountPath(connector, source_dir)
+		logging.getLogger(__name__).info("Searching for metadata.json in %s" % source_dir)
 
 		if os.path.isdir(source_dir):
 			md_file = None
@@ -57,6 +59,7 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 					md_file = os.path.join(source_dir, f)
 
 			if md_file:
+				logging.getLogger(__name__).info("Found metadata.json; cleaning")
 				md_json = clean_metadata(load_json_file(md_file), sensor_type)
 				format_md = {
 					"@context": ["https://clowder.ncsa.illinois.edu/contexts/metadata.jsonld",
@@ -67,16 +70,28 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 						"user_id": "https://terraref.ncsa.illinois.edu/clowder/api/users/%s" % self.userid
 					}
 				}
+				logging.getLogger(__name__).info("Uploading cleaned metadata to %s" % resource['id'])
 				upload_metadata(connector, host, secret_key, resource['id'], format_md)
 
 				# Now trigger a callback extraction if given
 				if len(self.callback) > 0:
+					logging.getLogger(__name__).info("Submitting callback extraction to %s" % self.callback)
 					submit_extraction(connector, host, secret_key, resource['id'], self.callback)
+				else:
+					callbacks = self.get_callbacks_by_sensor(sensor_type)
+					if callbacks:
+						for c in callbacks:
+							logging.getLogger(__name__).info("Submitting callback extraction to %s" % c)
+							submit_extraction(connector, host, secret_key, resource['id'], c)
+					else:
+						logging.getLogger(__name__).info("No default callback found for %s" % sensor_type)
 			else:
-				logging.error("metadata.json not found in %s" % source_dir)
+				logging.getLogger(__name__).error("metadata.json not found in %s" % source_dir)
 
 		else:
-			logging.info("%s could not be found" % source_dir)
+			logging.getLogger(__name__).info("%s could not be found" % source_dir)
+
+		# TODO: Have extractor check for existence of Level_1 output product and delete if exists?
 
 		self.end_message()
 
@@ -89,6 +104,24 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 		else:
 			return path
 
+	def get_callbacks_by_sensor(self, sensor_type):
+		"""Return list of standard extractors to trigger based on input sensor."""
+		callbacks = {
+			"stereoTop": ["terra.stereo-rgb.bin2tif",
+						  "terra.metadata.sensorposition"],
+
+			"flirIrCamera": ["terra.multispectral.flir2tif",
+							 "terra.metadata.sensorposition"],
+
+			"scanner3DTop": ["terra.3dscanner.ply2las",
+							 "terra.3dscanner.heightmap",
+							 "terra.metadata.sensorposition"]
+		}
+
+		if sensor_type in callbacks:
+			return callbacks[sensor_type]
+		else:
+			return None
 
 if __name__ == "__main__":
 	extractor = ReCleanLemnatecMetadata()
