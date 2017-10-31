@@ -49,6 +49,7 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 		# Search for metadata.json source file
 		source_dir = os.path.dirname(self.sensors.get_sensor_path_by_dataset(resource['name']))
 		source_dir = self.remapMountPath(connector, source_dir)
+		logging.getLogger(__name__).info("Searching for metadata.json in %s" % source_dir)
 
 		if os.path.isdir(source_dir):
 			md_file = None
@@ -57,6 +58,7 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 					md_file = os.path.join(source_dir, f)
 
 			if md_file:
+				logging.getLogger(__name__).info("Found metadata.json; cleaning")
 				md_json = clean_metadata(load_json_file(md_file), sensor_type)
 				format_md = {
 					"@context": ["https://clowder.ncsa.illinois.edu/contexts/metadata.jsonld",
@@ -67,6 +69,7 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 						"user_id": "https://terraref.ncsa.illinois.edu/clowder/api/users/%s" % self.userid
 					}
 				}
+				logging.getLogger(__name__).info("Uploading cleaned metadata to %s" % resource['id'])
 				upload_metadata(connector, host, secret_key, resource['id'], format_md)
 
 				# Now trigger a callback extraction if given
