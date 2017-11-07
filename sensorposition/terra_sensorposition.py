@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import logging
+
 from pyclowder.utils import CheckMessage
 from pyclowder.datasets import get_info, get_file_list, upload_metadata, download_metadata
 from terrautils.extractors import TerrarefExtractor, build_metadata
@@ -19,13 +21,12 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 
 	# Check whether dataset has geospatial metadata
 	def check_message(self, connector, host, secret_key, resource, parameters):
-		if 'parent' in resource:
-			ds_md = download_metadata(connector, host, secret_key, resource['parent']['id'])
+		ds_md = download_metadata(connector, host, secret_key, resource['id'])
 
-			terra_md = get_terraref_metadata(ds_md)
-			ext_md = get_extractor_metadata(ds_md, self.extractor_info['name'])
-			if terra_md and not ext_md:
-				return CheckMessage.bypass
+		terra_md = get_terraref_metadata(ds_md)
+		ext_md = get_extractor_metadata(ds_md, self.extractor_info['name'])
+		if terra_md and not ext_md:
+			return CheckMessage.bypass
 
 		return CheckMessage.ignore
 
@@ -38,8 +39,8 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 		# @out gantry_geometry
 		# @end extract_positional_info
 
-		ds_md = download_metadata(connector, host, secret_key, resource['parent']['id'])
-		ds_info = get_info(connector, host, secret_key, resource['parent']['id'])
+		ds_md = download_metadata(connector, host, secret_key, resource['id'])
+		ds_info = get_info(connector, host, secret_key, resource['id'])
 		terra_md = get_terraref_metadata(ds_md)
 
 		# @begin upload_to_geostreams_API
@@ -48,6 +49,7 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 		# @end upload_to_geostreams_API
 
 		# Get sensor from datasetname
+		logging.getLogger(__name__).info("Getting position information from metadata")
 		(streamprefix, timestamp) = ds_info['name'].split(' - ')
 		date = timestamp.split("__")[0]
 		scan_time = calculate_scan_time(terra_md)
@@ -71,19 +73,21 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 		if centroid:
 			dpmetadata = {
 				"source_dataset": host + ("" if host.endswith("/") else "/") + \
-								  "datasets/" + resource['parent']['id'],
+								  "datasets/" + resource['id'],
 				"dataset_name": ds_info['name']
 			}
 
+			logging.getLogger(__name__).info("Creating datapoint in %s" % streamprefix)
 			create_datapoint_with_dependencies(connector, host, secret_key,
 											   streamprefix, centroid,
 											   scan_time, scan_time, dpmetadata, date, bbox)
 
 		# Attach geometry to Clowder metadata as well
-		ext_meta = build_metadata(host, self.extractor_info, resource['parent']['id'], {
+		logging.getLogger(__name__).info("Uploading status metadata")
+		ext_meta = build_metadata(host, self.extractor_info, resource['id'], {
 			"datapoints_added": 1
 		}, 'dataset')
-		upload_metadata(connector, host, secret_key, resource['parent']['id'], ext_meta)
+		upload_metadata(connector, host, secret_key, resource['id'], ext_meta)
 
 		self.end_message()
 
