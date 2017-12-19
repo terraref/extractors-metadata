@@ -39,29 +39,37 @@ class RepairLemnatecDatasets(TerrarefExtractor):
 		self.start_message()
 
 		sensor_type, timestamp = resource['name'].split(" - ")
+		targets = self.get_targets_by_sensor(sensor_type)
+		existing_files = {}
+		for t in targets:
+			for lp in resource['local_paths']:
+				if lp.endswith(t):
+					existing_files[t] = lp
+					break
 
-		# Search for metadata.json source file
+		if len(existing_files.keys() == len(targets)):
+			logging.getLogger(__name__).info("Target files already exist")
+			return
+
+		# Search for target source files
 		source_dir = os.path.dirname(self.sensors.get_sensor_path_by_dataset(resource['name']))
 		source_dir = self.remapMountPath(connector, source_dir)
-
-		# TODO: Eventually we should find better way to represent this
-		# TODO: split between the PLY files (in Level_1) and metadata.json files
 		if sensor_type == "scanner3DTop":
 			source_dir = source_dir.replace("Level_1", "raw_data")
 
 		logging.getLogger(__name__).info("Searching for target files in %s" % source_dir)
 
 		if os.path.isdir(source_dir):
-			targets = self.get_targets_by_sensor(sensor_type)
 			targ_files = {}
 			for f in os.listdir(source_dir):
 				for t in targets:
 					if f.endswith(t):
 						targ_files[t] = os.path.join(source_dir, f)
+						break
 
 			if targ_files != {}:
 				for t in targ_files:
-					logging.getLogger(__name__).info("Uploading cleaned metadata to %s" % resource['id'])
+					logging.getLogger(__name__).info("Uploading %f to %s" % (targ_files[t], resource['id']))
 					upload_to_dataset(connector, host, self.clowder_user, self.clowder_pass, resource['id'], targ_files[t])
 
 				# Now trigger a callback extraction if given
@@ -81,8 +89,6 @@ class RepairLemnatecDatasets(TerrarefExtractor):
 
 		else:
 			logging.getLogger(__name__).info("%s could not be found" % source_dir)
-
-		# TODO: Have extractor check for existence of Level_1 output product and delete if exists?
 
 		self.end_message()
 
