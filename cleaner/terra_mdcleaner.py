@@ -42,6 +42,12 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 
 		sensor_type, timestamp = resource['name'].split(" - ")
 
+		ignore_types = ["RGB GeoTIFFs", "Thermal IR GeoTIFFs"]
+		for ignore in ignore_types:
+			if sensor_type.find(ignore) > -1:
+				# We don't have json files for Level_1 data if they were queued here accidentally
+				return
+
 		if self.delete:
 			# Delete all existing metadata from this dataset
 			logging.getLogger(__name__).info("Deleting existing metadata from %s" % resource['id'])

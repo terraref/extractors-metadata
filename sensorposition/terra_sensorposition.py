@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-import logging
-
 from pyclowder.utils import CheckMessage
 from pyclowder.datasets import get_info, get_file_list, upload_metadata, download_metadata
 from terrautils.extractors import TerrarefExtractor, build_metadata
@@ -21,6 +19,10 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 
 	# Check whether dataset has geospatial metadata
 	def check_message(self, connector, host, secret_key, resource, parameters):
+		if resource['type'] != "dataset":
+			return CheckMessage.ignore
+		self.start_check(resource)
+
 		ds_md = download_metadata(connector, host, secret_key, resource['id'])
 
 		terra_md = get_terraref_metadata(ds_md)
@@ -32,7 +34,7 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 
 	# Process the file and upload the results
 	def process_message(self, connector, host, secret_key, resource, parameters):
-		self.start_message()
+		self.start_message(resource)
 
 		# @begin extract_positional_info_from_metadata
 		# @in new_dataset_added
@@ -49,7 +51,7 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 		# @end upload_to_geostreams_API
 
 		# Get sensor from datasetname
-		logging.getLogger(__name__).info("Getting position information from metadata")
+		self.log_info(resource, "Getting position information from metadata")
 		(streamprefix, timestamp) = ds_info['name'].split(' - ')
 		date = timestamp.split("__")[0]
 		scan_time = calculate_scan_time(terra_md)
@@ -77,19 +79,19 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 				"dataset_name": ds_info['name']
 			}
 
-			logging.getLogger(__name__).info("Creating datapoint in %s" % streamprefix)
+			self.log_info(resource, "Creating datapoint in %s" % streamprefix)
 			create_datapoint_with_dependencies(connector, host, secret_key,
 											   streamprefix, centroid,
 											   scan_time, scan_time, dpmetadata, date, bbox)
 
 		# Attach geometry to Clowder metadata as well
-		logging.getLogger(__name__).info("Uploading status metadata")
+		self.log_info(resource, "Uploading dataset metadata")
 		ext_meta = build_metadata(host, self.extractor_info, resource['id'], {
 			"datapoints_added": 1
 		}, 'dataset')
 		upload_metadata(connector, host, secret_key, resource['id'], ext_meta)
 
-		self.end_message()
+		self.end_message(resource)
 
 # @end extractor_sensor_position
 
