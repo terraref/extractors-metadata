@@ -42,6 +42,12 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 
 		sensor_type, timestamp = resource['name'].split(" - ")
 
+		ignore_types = ["RGB GeoTIFFs", "Thermal IR GeoTIFFs"]
+		for ignore in ignore_types:
+			if sensor_type.find(ignore) > -1:
+				# We don't have json files for Level_1 data if they were queued here accidentally
+				return
+
 		if self.delete:
 			# Delete all existing metadata from this dataset
 			logging.getLogger(__name__).info("Deleting existing metadata from %s" % resource['id'])
@@ -50,6 +56,12 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 		# Search for metadata.json source file
 		source_dir = os.path.dirname(self.sensors.get_sensor_path_by_dataset(resource['name']))
 		source_dir = self.remapMountPath(connector, source_dir)
+
+		# TODO: Eventually we should find better way to represent this
+		# TODO: split between the PLY files (in Level_1) and metadata.json files
+		if sensor_type == "scanner3DTop":
+			source_dir = source_dir.replace("Level_1", "raw_data")
+
 		logging.getLogger(__name__).info("Searching for metadata.json in %s" % source_dir)
 
 		if os.path.isdir(source_dir):
