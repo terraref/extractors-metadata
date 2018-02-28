@@ -3,7 +3,8 @@
 from pyclowder.utils import CheckMessage
 from pyclowder.datasets import get_info, get_file_list, upload_metadata, download_metadata
 from terrautils.extractors import TerrarefExtractor, build_metadata
-from terrautils.geostreams import create_datapoint_with_dependencies
+from terrautils.geostreams import create_datapoint_with_dependencies, get_sensor_by_name, create_sensor, \
+	get_stream_by_name, create_stream, create_datapoint
 from terrautils.metadata import get_terraref_metadata, get_extractor_metadata, calculate_scan_time
 
 
@@ -20,35 +21,35 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 	# Check whether dataset has geospatial metadata
 	def check_message(self, connector, host, secret_key, resource, parameters):
 		if resource['type'] != "dataset":
+			if 'name' not in resource:
+				resource['name'] = resource["type"]
+			self.log_skip(resource, "position is only logged for dataset metadata")
 			return CheckMessage.ignore
 		self.start_check(resource)
 
-		ds_md = download_metadata(connector, host, secret_key, resource['id'])
-
-		terra_md = get_terraref_metadata(ds_md)
-		ext_md = get_extractor_metadata(ds_md, self.extractor_info['name'])
-		if terra_md and not ext_md:
-			return CheckMessage.bypass
-
-		return CheckMessage.ignore
+		if 'spatial_metadata' in resource['metadata']:
+			ds_md = download_metadata(connector, host, secret_key, resource['id'])
+			ext_md = get_extractor_metadata(ds_md, self.extractor_info['name'])
+			if not ext_md:
+				return CheckMessage.bypass
+			else:
+				self.log_skip(resource, "sensorposition metadata already exists")
+				return CheckMessage.ignore
+		else:
+			self.log_skip(resource, "newly added metadata is not from LemnaTec")
+			return CheckMessage.ignore
 
 	# Process the file and upload the results
 	def process_message(self, connector, host, secret_key, resource, parameters):
 		self.start_message(resource)
 
+		terra_md = resource['metadata']
+		ds_info = get_info(connector, host, secret_key, resource['id'])
+
 		# @begin extract_positional_info_from_metadata
 		# @in new_dataset_added
 		# @out gantry_geometry
 		# @end extract_positional_info
-
-		ds_md = download_metadata(connector, host, secret_key, resource['id'])
-		ds_info = get_info(connector, host, secret_key, resource['id'])
-		terra_md = get_terraref_metadata(ds_md)
-
-		# @begin upload_to_geostreams_API
-		# @in sensor_position_in_lat/lon
-		# @in sensor_id
-		# @end upload_to_geostreams_API
 
 		# Get sensor from datasetname
 		self.log_info(resource, "Getting position information from metadata")
@@ -56,6 +57,11 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 		date = timestamp.split("__")[0]
 		scan_time = calculate_scan_time(terra_md)
 		streamprefix += " Datasets"
+		dpmetadata = {
+			"source_dataset": host + ("" if host.endswith("/") else "/") + \
+							  "datasets/" + resource['id'],
+			"dataset_name": ds_info['name']
+		}
 
 		centroid = None
 		bbox = None
@@ -64,22 +70,24 @@ class Sensorposition2Geostreams(TerrarefExtractor):
 				centroid = terra_md['spatial_metadata'][entry]['centroid']
 			if 'bounding_box' in terra_md['spatial_metadata'][entry]:
 				bbox = terra_md['spatial_metadata'][entry]['bounding_box']
-		if bbox:
-			# Clean up GeoJSON for geostreams
-			bbox = {
-				"type": bbox['type'],
-				"coordinates": [
-					bbox['coordinates']
-				]
-			}
-		if centroid:
-			dpmetadata = {
-				"source_dataset": host + ("" if host.endswith("/") else "/") + \
-								  "datasets/" + resource['id'],
-				"dataset_name": ds_info['name']
-			}
+				bbox = {
+					"type": bbox['type'],
+					"coordinates": [
+						bbox['coordinates']
+					]
+				}
 
-			self.log_info(resource, "Creating datapoint in %s" % streamprefix)
+		if 'site_metadata' in terra_md:
+			# We've already determined the plot associated with this dataset so we can skip some work
+			self.log_info(resource, "Creating datapoint without lookup in %s" % streamprefix)
+			create_datapoint_with_dependencies(connector, host, secret_key,
+											   streamprefix, centroid,
+											   scan_time, scan_time, dpmetadata, date, bbox,
+											   terra_md['site_metadata']['sitename'])
+
+		else:
+			# We need to do the traditional querying for plot
+			self.log_info(resource, "Creating datapoint with lookup in %s" % streamprefix)
 			create_datapoint_with_dependencies(connector, host, secret_key,
 											   streamprefix, centroid,
 											   scan_time, scan_time, dpmetadata, date, bbox)
