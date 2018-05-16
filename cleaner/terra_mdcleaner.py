@@ -11,7 +11,7 @@ from terrautils.metadata import clean_metadata, get_terraref_metadata
 
 def add_local_arguments(parser):
 	# add any additional arguments to parser
-	parser.add_argument('--delete', type=bool, default=os.getenv('DELETE_EXISTING_METADATA', True),
+	parser.add_argument('--delete', type=bool, default=os.getenv('DELETE_EXISTING_METADATA', False),
 						help="whether to delete all existing metadata from datasets first")
 	parser.add_argument('--userid', default=os.getenv('CLOWDER_USER_UUID', "57adcb81c0a7465986583df1"),
 						help="user ID to use as creator of metadata")
