@@ -82,7 +82,7 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 				if f.endswith("metadata.json"):
 					md_file = os.path.join(source_dir, f)
 			if md_file:
-				self.log_info("Found metadata.json; cleaning")
+				self.log_info(resource, "Found metadata.json; cleaning")
 				md_json = clean_metadata(load_json_file(md_file), sensor_type)
 				format_md = {
 					"@context": ["https://clowder.ncsa.illinois.edu/contexts/metadata.jsonld",
