@@ -1,4 +1,4 @@
-FROM terraref/terrautils
+FROM terraref/terrautils:1.5
 MAINTAINER Max Burnette <mburnet2@illinois.edu>
 
 # Create user with necessary user ID for writing permissions on Roger

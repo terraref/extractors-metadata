@@ -4,7 +4,7 @@ import os
 import logging
 
 from pyclowder.utils import CheckMessage
-from pyclowder.datasets import upload_metadata, submit_extraction, download_metadata
+from pyclowder.datasets import upload_metadata, submit_extraction, download_metadata, remove_metadata
 from terrautils.extractors import TerrarefExtractor, delete_dataset_metadata, load_json_file
 from terrautils.metadata import clean_metadata, get_terraref_metadata
 
@@ -42,13 +42,6 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 
 		sensor_type, timestamp = resource['name'].split(" - ")
 
-		# First, re-check metadata to verify it hasn't been added in meantime
-		ds_md = download_metadata(connector, host, secret_key, resource['id'])
-		terra_md = get_terraref_metadata(ds_md)
-		if terra_md:
-			self.log_info(resource, "Found TERRA-REF metadata; not cleaning")
-			return
-
 		# These datasets do not have TERRA md
 		uncleanables = ["Full Field"]
 		if sensor_type in uncleanables:
@@ -73,7 +66,7 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 
 		# TODO: split between the PLY files (in Level_1) and metadata.json files - unique to this sensor
 		if sensor_type == "scanner3DTop":
-			source_dir = source_dir.replace("Level_1", "raw_data")
+			source_dir = source_dir.replace("Level_1", "raw_data").replace("laser3d_las", "scanner3DTop")
 
 		self.log_info(resource, "Searching for metadata.json in %s" % source_dir)
 		if os.path.isdir(source_dir):
@@ -94,6 +87,8 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 					}
 				}
 				self.log_info(resource, "Uploading cleaned metadata")
+				# TODO: Can we remove all metadata here? Does username work?
+				remove_metadata(connector, host, secret_key, resource['id'], 'Maricopa Site')
 				upload_metadata(connector, host, secret_key, resource['id'], format_md)
 
 				# Now trigger a callback extraction if given
@@ -130,15 +125,11 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 	def get_callbacks_by_sensor(self, sensor_type):
 		"""Return list of standard extractors to trigger based on input sensor."""
 		callbacks = {
-			"stereoTop": ["terra.stereo-rgb.bin2tif",
-						  "terra.metadata.sensorposition"],
+			"stereoTop": ["terra.stereo-rgb.bin2tif"],
 
-			"flirIrCamera": ["terra.multispectral.flir2tif",
-							 "terra.metadata.sensorposition"],
+			"flirIrCamera": ["terra.multispectral.flir2tif"],
 
-			"scanner3DTop": ["terra.3dscanner.ply2las",
-							 "terra.3dscanner.heightmap",
-							 "terra.metadata.sensorposition"]
+			"scanner3DTop": ["terra.3dscanner.ply2las"]
 		}
 
 		if sensor_type in callbacks:
