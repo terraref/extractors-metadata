@@ -1,18 +1,14 @@
 {
-  "title": "TERRA-REF Stereo RGB Extractors",
-  "description": "This repository contains Clowder extractors used to process stereo RGB camera data for the TERRA-REF project.",
+  "title": "TERRA-REF Metadata Extractors",
+  "description": "This repository contains Clowder extractors used to process cross-product metadata for the TERRA-REF project.",
   "creators": [
     {
       "affiliation": "University of Arizona",
       "name": "David LeBauer"
     },
     {
-      "affiliation": "Donald Danforth Plant Science Center",
-      "name": "Zongyang Li"
-    },
-    {
-      "affiliation": "Saint Louis University",
-      "name": "Sidike Paheding"
+      "affiliation": "National Center for Supercomputing Applications",
+      "name": "Yan Liu"
     },
     {
       "affiliation": "National Center for Supercomputing Applications",
@@ -22,10 +18,6 @@
     {
       "affiliation": "National Center for Supercomputing Applications",
       "name": "Max Burnette"
-    },
-    {
-      "affiliation": "LemnaTec",
-      "name": "Solmaz Hajmohammadi"
     }
   ],
   "upload_type": "software",
