@@ -1,0 +1,23 @@
+{
+  "title": "TERRA-REF Metadata Extractors",
+  "description": "This repository contains Clowder extractors used to process cross-product metadata for the TERRA-REF project.",
+  "creators": [
+    {
+      "affiliation": "National Center for Supercomputing Applications",
+      "name": "Max Burnette"
+    },
+    {
+      "affiliation": "National Center for Supercomputing Applications",
+      "name": "Yan Liu"
+    }
+  ],
+  "upload_type": "software",
+  "license": "BSD-3-Clause",
+  "access_right": "open",
+  "keywords": [
+    "TERRA-REF",
+    "clowder",
+    "Image Processing"
+  ],
+  "notes": ""
+}
