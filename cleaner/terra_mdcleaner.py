@@ -53,9 +53,11 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 					 "Thermal IR GeoTIFFs": "flirIrCamera"}
 		if sensor_type in lv1_types:
 			raw_equiv = resource['name'].replace(sensor_type, lv1_types[sensor_type])
+			raw_sensor = lv1_types[sensor_type]
 			source_dir = os.path.dirname(self.sensors.get_sensor_path_by_dataset(raw_equiv))
 		else:
 			# Search for metadata.json source file
+			raw_sensor = sensor_type
 			source_dir = os.path.dirname(self.sensors.get_sensor_path_by_dataset(resource['name']))
 		source_dir = self.remapMountPath(connector, source_dir)
 
@@ -76,7 +78,7 @@ class ReCleanLemnatecMetadata(TerrarefExtractor):
 					md_file = os.path.join(source_dir, f)
 			if md_file:
 				self.log_info(resource, "Found metadata.json; cleaning")
-				md_json = clean_metadata(load_json_file(md_file), sensor_type)
+				md_json = clean_metadata(load_json_file(md_file), raw_sensor)
 				format_md = {
 					"@context": ["https://clowder.ncsa.illinois.edu/contexts/metadata.jsonld",
 								 {"@vocab": "https://terraref.ncsa.illinois.edu/metadata/uamac#"}],
