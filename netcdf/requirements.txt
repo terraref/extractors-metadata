@@ -1,5 +1,5 @@
 pika==0.10.0
 pyclowder==0.1
 requests>=2.20.0
-wheel==0.24.0
+wheel==0.38.1
 utm==0.4.1
